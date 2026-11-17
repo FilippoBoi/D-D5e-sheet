@@ -5,23 +5,23 @@
 
 /* ---------- Design tokens ---------- */
 :root {
-  --vermilion: #BF2215;
-  --vermilion-strong: #D9301F;
-  --vermilion-soft: rgba(191, 34, 21, 0.14);
-  --teal: #2292A4;
-  --teal-strong: #33AEC1;
-  --teal-soft: rgba(34, 146, 164, 0.14);
-  --gold: #C9A227;
+  --vermilion: #A8463B;
+  --vermilion-strong: #C25E50;
+  --vermilion-soft: rgba(168, 70, 59, 0.12);
+  --teal: #3F8F9C;
+  --teal-strong: #6BB3BF;
+  --teal-soft: rgba(63, 143, 156, 0.12);
+  --gold: #BFA46A;
 
-  --bg: #101416;
-  --card: #1A2024;
-  --card-raised: #212930;
-  --input: #12181B;
-  --border: #2A3338;
-  --border-strong: #3A464D;
+  --bg: #15191C;
+  --card: #1D2327;
+  --card-raised: #242C31;
+  --input: #181E22;
+  --border: #2E373C;
+  --border-strong: #3F4B52;
 
-  --text: #E6E9EA;
-  --text-muted: #8E9BA1;
+  --text: #D9DEE0;
+  --text-muted: #9AA7AD;
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -176,10 +176,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .field textarea { resize: vertical; min-height: 4.5rem; }
+/* Su iOS Safari i campi sotto 16px fanno zoom automatico al focus */
+@media (max-width: 599px) {
+  .field input:not([type="checkbox"]), .field select, .field textarea,
+  .ability input { font-size: 16px; }
+}
 .field input:focus, .field select:focus, .field textarea:focus {
   outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
 }
-.field input::placeholder, .field textarea::placeholder { color: #5C686E; }
+.field input::placeholder, .field textarea::placeholder { color: #75838A; }
 .field--inline { flex-direction: row; align-items: center; gap: 0.5rem; }
 .field--inline input { width: 6rem !important; }
 .field--check { flex-direction: row; align-items: center; gap: 0.5rem; cursor: pointer; }
@@ -235,11 +240,12 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .btn:hover { border-color: var(--teal); }
 .btn:active { transform: translateY(1px); }
 .btn--ghost { background: transparent; }
-.btn--teal { background: var(--teal); border-color: var(--teal); color: #fff; }
-.btn--teal:hover { background: var(--teal-strong); }
+/* Teal scurito per il contrasto del testo bianco (WCAG AA) */
+.btn--teal { background: #2F7F8C; border-color: #2F7F8C; color: #fff; }
+.btn--teal:hover { background: #297280; border-color: #297280; }
 .btn--danger { border-color: var(--vermilion); color: #fff; background: var(--vermilion); }
 .btn--danger:hover { background: var(--vermilion-strong); border-color: var(--vermilion-strong); }
-.btn--link { background: none; border: none; min-height: 0; padding: 0 0.25rem; color: var(--teal-strong); text-decoration: underline; }
+.btn--link { background: none; border: none; min-height: 2.4rem; padding: 0 0.4rem; color: var(--teal-strong); text-decoration: underline; }
 .btn--icon { width: 2.4rem; padding: 0; }
 
 /* ---------- Punti ferita ---------- */
@@ -253,7 +259,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 /* ---------- Pips (TS contro morte, slot) ---------- */
 .pips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .pip {
-  width: 1.5rem; height: 1.5rem; padding: 0; cursor: pointer;
+  width: 2rem; height: 2rem; padding: 0; cursor: pointer;
   border-radius: 50%; border: 2px solid var(--border-strong); background: var(--input);
   transition: background 0.15s, border-color 0.15s;
 }
