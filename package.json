@@ -1,0 +1,14 @@
+{
+  "name": "dnd5e-character-sheet",
+  "version": "1.0.0",
+  "description": "Scheda personaggio interattiva per D&D 5E in HTML, CSS e JavaScript vanilla (architettura MVC).",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve -l 8080 .",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

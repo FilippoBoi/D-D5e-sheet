@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Scheda personaggio interattiva per Dungeons & Dragons 5E: calcoli automatici, salvataggio locale, nessuna dipendenza.">
+  <meta name="theme-color" content="#101416">
+  <title>Scheda Personaggio D&amp;D 5E</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23BF2215' d='M16 1 29 8.5v15L16 31 3 23.5v-15z'/%3E%3Cpath fill='%23101416' d='M16 7l7 12H9z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Entry point: avvia Model, View e Controller (vedi js/app.js) -->
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#sheet">Vai alla scheda</a>
+
+  <header class="app-header">
+    <div class="app-header__brand">
+      <svg class="app-header__logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1 29 8.5v15L16 31 3 23.5v-15z"/><path class="cut" d="M16 7l7 12H9z"/></svg>
+      <h1>Scheda Personaggio <span>D&amp;D 5E</span></h1>
+    </div>
+    <nav class="toolbar" aria-label="Azioni sulla scheda">
+      <button type="button" class="btn btn--ghost" data-action="expand-all">Espandi tutto</button>
+      <button type="button" class="btn btn--ghost" data-action="collapse-all">Comprimi tutto</button>
+      <button type="button" class="btn" data-action="export">Esporta</button>
+      <button type="button" class="btn" data-action="import">Importa</button>
+      <button type="button" class="btn btn--danger" data-action="reset">Reset</button>
+      <input type="file" accept="application/json,.json" hidden data-ref="import-input">
+    </nav>
+    <p class="save-status" data-ref="save-status" role="status" aria-live="polite"></p>
+  </header>
+
+  <!-- Riepilogo sempre visibile -->
+  <section class="quickbar" aria-label="Riepilogo del personaggio">
+    <div class="quickbar__item quickbar__item--accent"><span>CA</span><output data-out="ac"></output></div>
+    <div class="quickbar__item"><span>PF</span><output data-out="hp.summary"></output></div>
+    <div class="quickbar__item"><span>Iniz.</span><output data-out="initiative" data-format="mod"></output></div>
+    <div class="quickbar__item"><span>Comp.</span><output data-out="profBonus" data-format="mod"></output></div>
+    <div class="quickbar__item" data-show-if="spellcasting.isCaster"><span>CD</span><output data-out="spellcasting.dc"></output></div>
+  </section>
+
+  <noscript><p class="notice notice--warning">Questa scheda richiede JavaScript attivo.</p></noscript>
+
+  <main class="sheet" id="sheet">
+
+    <!-- 1. INFORMAZIONI GENERALI -->
+    <details class="panel" data-panel="info" open>
+      <summary class="panel__header">
+        <span class="panel__index">1</span>
+        <h2>Informazioni Generali &amp; Classe</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div class="grid grid--3">
+          <label class="field"><span class="field__label">Nome personaggio</span>
+            <input type="text" data-bind="info.name" autocomplete="off" placeholder="Es. Thalia Corvoscuro"></label>
+          <label class="field"><span class="field__label">Giocatore</span>
+            <input type="text" data-bind="info.player" autocomplete="off"></label>
+          <label class="field"><span class="field__label">Razza</span>
+            <input type="text" data-bind="info.race" autocomplete="off" placeholder="Es. Mezzelfo"></label>
+          <label class="field"><span class="field__label">Background</span>
+            <input type="text" data-bind="info.background" autocomplete="off" placeholder="Es. Accolito"></label>
+          <label class="field"><span class="field__label">Allineamento</span>
+            <select data-bind="info.alignment" data-options="alignments"><option value="">—</option></select></label>
+          <label class="field"><span class="field__label">Classe</span>
+            <select data-bind="info.classId" data-options="classes"></select></label>
+        </div>
+        <div class="grid grid--3 grid--stats">
+          <label class="field"><span class="field__label">Livello</span>
+            <input type="number" data-bind="info.level" min="1" max="20" inputmode="numeric"></label>
+          <div class="stat"><span class="stat__label">Bonus competenza</span><output class="stat__value" data-out="profBonus" data-format="mod"></output></div>
+          <div class="stat"><span class="stat__label">Dado vita</span><output class="stat__value" data-out="hitDie"></output></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- 2. COMBATTIMENTO -->
+    <details class="panel" data-panel="combat" open>
+      <summary class="panel__header">
+        <span class="panel__index">2</span>
+        <h2>Combattimento &amp; Punti Ferita</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div class="grid grid--3 grid--stats">
+          <div class="stat stat--shield" title="Scomposizione CA">
+            <span class="stat__label">Classe Armatura</span>
+            <output class="stat__value stat__value--xl" data-out="ac"></output>
+            <small class="stat__hint" data-out="acBreakdown"></small>
+          </div>
+          <div class="stat">
+            <span class="stat__label">Iniziativa</span>
+            <output class="stat__value stat__value--xl" data-out="initiative" data-format="mod"></output>
+            <small class="stat__hint">Mod. Destrezza</small>
+          </div>
+          <label class="field field--stat"><span class="field__label">Velocità (m)</span>
+            <input type="number" data-bind="combat.speed" min="0" max="99" step="1.5" inputmode="decimal"></label>
+        </div>
+
+        <h3 class="subhead">Punti Ferita</h3>
+        <div class="hp">
+          <div class="hp__bar" aria-hidden="true"><div class="hp__fill" data-ref="hp-bar"></div></div>
+          <div class="grid grid--3">
+            <label class="field"><span class="field__label">PF massimi</span>
+              <input type="number" data-bind="combat.hpMax" min="1" max="999" inputmode="numeric"></label>
+            <label class="field"><span class="field__label">PF attuali</span>
+              <input type="number" data-bind="combat.hpCurrent" min="0" max="999" inputmode="numeric"></label>
+            <label class="field"><span class="field__label">PF temporanei</span>
+              <input type="number" data-bind="combat.hpTemp" min="0" max="999" inputmode="numeric"></label>
+          </div>
+          <p class="hint">PF suggeriti per classe e livello: <strong data-out="hp.suggested"></strong>
+            <button type="button" class="btn btn--link" data-action="apply-suggested-hp">Applica</button></p>
+
+          <div class="hp__actions">
+            <label class="field field--inline"><span class="field__label">Quantità</span>
+              <input type="number" min="1" max="999" inputmode="numeric" data-ref="hp-delta" placeholder="0"></label>
+            <button type="button" class="btn btn--danger" data-action="damage">Danno</button>
+            <button type="button" class="btn btn--teal" data-action="heal">Cura</button>
+            <button type="button" class="btn btn--ghost" data-action="long-rest">Riposo lungo</button>
+          </div>
+        </div>
+
+        <div class="death-saves" data-show-if="hp.isDown">
+          <h3 class="subhead">Tiri salvezza contro morte</h3>
+          <div class="death-saves__row"><span>Successi</span>
+            <div class="pips pips--success" data-pips data-path="combat.deathSuccesses" data-max="3" data-label="Successo"></div></div>
+          <div class="death-saves__row"><span>Fallimenti</span>
+            <div class="pips" data-pips data-path="combat.deathFailures" data-max="3" data-label="Fallimento"></div></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- 3. CARATTERISTICHE -->
+    <details class="panel" data-panel="abilities" open>
+      <summary class="panel__header">
+        <span class="panel__index">3</span>
+        <h2>Caratteristiche &amp; Tiri Salvezza</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div class="abilities" data-list="abilities"></div>
+        <h3 class="subhead">Tiri salvezza</h3>
+        <ul class="checklist checklist--2" data-list="saves"></ul>
+        <p class="hint">Le competenze vengono impostate in base alla classe; puoi modificarle liberamente.</p>
+      </div>
+    </details>
+
+    <!-- 4. ABILITÀ -->
+    <details class="panel" data-panel="skills">
+      <summary class="panel__header">
+        <span class="panel__index">4</span>
+        <h2>Abilità</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div class="checklist__legend"><span>Comp.</span><span>Maes.</span><span>Abilità</span><span>Bonus</span></div>
+        <ul class="checklist checklist--2" data-list="skills"></ul>
+        <div class="grid grid--3 grid--stats">
+          <div class="stat"><span class="stat__label">Saggezza (Percezione) passiva</span><output class="stat__value" data-out="passivePerception"></output></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- 5. EQUIPAGGIAMENTO -->
+    <details class="panel" data-panel="equipment">
+      <summary class="panel__header">
+        <span class="panel__index">5</span>
+        <h2>Equipaggiamento, Armature &amp; Armi</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <h3 class="subhead">Armatura</h3>
+        <div class="grid grid--3">
+          <label class="field"><span class="field__label">Armatura indossata</span>
+            <select data-bind="equipment.armorId" data-options="armors"></select></label>
+          <label class="field"><span class="field__label">Bonus magico CA</span>
+            <input type="number" data-bind="equipment.magicBonus" min="-5" max="10" inputmode="numeric"></label>
+          <label class="field field--check field--check-box">
+            <input type="checkbox" data-bind="equipment.shield"><span>Scudo <small>(+2 CA)</small></span></label>
+        </div>
+        <div class="armor-info">
+          <div><span class="armor-info__label">Categoria</span> <span data-out="armor.category"></span></div>
+          <div><span class="armor-info__label">Formula</span> <span data-out="armor.formula"></span></div>
+          <div><span class="armor-info__label">CA totale</span> <strong class="text-vermilion" data-out="ac"></strong></div>
+        </div>
+        <p class="notice notice--warning" data-show-if="armor.strengthWarning">
+          Forza insufficiente (richiesta <span data-out="armor.strReq"></span>): la velocità si riduce di 3 metri.</p>
+        <p class="notice" data-show-if="armor.stealthDisadvantage">Questa armatura impone svantaggio alle prove di Furtività.</p>
+
+        <div class="subhead-row">
+          <h3 class="subhead">Armi &amp; Attacchi</h3>
+          <button type="button" class="btn btn--teal" data-action="add-weapon">+ Aggiungi arma</button>
+        </div>
+        <div class="weapons" data-list="weapons"></div>
+        <p class="empty" data-show-if="!hasWeapons">Nessuna arma. Usa “Aggiungi arma” per iniziare.</p>
+
+        <h3 class="subhead">Monete</h3>
+        <div class="coins">
+          <label class="field"><span class="field__label">MR</span><input type="number" data-bind="equipment.coins.mr" min="0" inputmode="numeric"></label>
+          <label class="field"><span class="field__label">MA</span><input type="number" data-bind="equipment.coins.ma" min="0" inputmode="numeric"></label>
+          <label class="field"><span class="field__label">ME</span><input type="number" data-bind="equipment.coins.me" min="0" inputmode="numeric"></label>
+          <label class="field"><span class="field__label">MO</span><input type="number" data-bind="equipment.coins.mo" min="0" inputmode="numeric"></label>
+          <label class="field"><span class="field__label">MP</span><input type="number" data-bind="equipment.coins.mp" min="0" inputmode="numeric"></label>
+        </div>
+
+        <label class="field"><span class="field__label">Inventario</span>
+          <textarea data-bind="equipment.inventory" rows="5" placeholder="Zaino, corda di canapa (15 m), razioni (5)…"></textarea></label>
+      </div>
+    </details>
+
+    <!-- 6. INCANTESIMI (visibile solo per gli incantatori) -->
+    <details class="panel" data-panel="spells" data-show-if="spellcasting.isCaster">
+      <summary class="panel__header">
+        <span class="panel__index">6</span>
+        <h2>Incantesimi &amp; Trucchetti</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div class="grid grid--3 grid--stats">
+          <div class="stat"><span class="stat__label">Caratteristica</span><output class="stat__value stat__value--sm" data-out="spellcasting.abilityName"></output></div>
+          <div class="stat"><span class="stat__label">CD Tiro Salvezza</span><output class="stat__value" data-out="spellcasting.dc"></output></div>
+          <div class="stat"><span class="stat__label">Attacco incantesimi</span><output class="stat__value" data-out="spellcasting.attack" data-format="mod"></output></div>
+        </div>
+
+        <h3 class="subhead">Slot incantesimo <small class="muted">(segna quelli usati)</small></h3>
+        <p class="hint" data-show-if="spellcasting.isPact">Magia del Patto: gli slot si recuperano con un riposo breve.</p>
+        <div class="slots" data-list="spell-slots"></div>
+
+        <div class="grid grid--2">
+          <label class="field"><span class="field__label">Trucchetti</span>
+            <textarea data-bind="spells.cantrips" rows="4" placeholder="Luce, Mano magica…"></textarea></label>
+          <label class="field"><span class="field__label">Incantesimi conosciuti / preparati</span>
+            <textarea data-bind="spells.prepared" rows="4" placeholder="1° — Dardo incantato, Scudo…"></textarea></label>
+        </div>
+      </div>
+    </details>
+
+    <!-- 7. PRIVILEGI -->
+    <details class="panel" data-panel="features">
+      <summary class="panel__header">
+        <span class="panel__index">7</span>
+        <h2>Privilegi, Tratti &amp; Capacità di Classe</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div data-show-if="hasResources">
+          <h3 class="subhead">Risorse di classe</h3>
+          <div class="resources" data-list="resources"></div>
+        </div>
+        <h3 class="subhead">Privilegi di <span data-out="className"></span></h3>
+        <ol class="features" data-list="features"></ol>
+        <div class="grid grid--2">
+          <label class="field"><span class="field__label">Tratti razziali &amp; talenti</span>
+            <textarea data-bind="notes.traits" rows="4" placeholder="Scurovisione, Ascendenza fatata…"></textarea></label>
+          <label class="field"><span class="field__label">Storia &amp; personalità</span>
+            <textarea data-bind="notes.backstory" rows="4"></textarea></label>
+        </div>
+      </div>
+    </details>
+  </main>
+
+  <footer class="app-footer">
+    <p>Dati salvati solo nel tuo browser. Progetto non ufficiale basato sulle regole di D&amp;D 5E.</p>
+  </footer>
+
+  <!-- Template di una riga arma: la View lo clona e collega i campi -->
+  <template id="tpl-weapon-row">
+    <div class="weapon">
+      <label class="field weapon__name"><span class="field__label">Arma</span>
+        <input type="text" data-field="name" placeholder="Spada lunga" autocomplete="off"></label>
+      <label class="field"><span class="field__label">Caratt.</span>
+        <select data-field="ability"><option value="str">FOR</option><option value="dex">DES</option></select></label>
+      <label class="field"><span class="field__label">Magia</span>
+        <input type="number" data-field="magicBonus" min="-5" max="10" inputmode="numeric"></label>
+      <label class="field"><span class="field__label">Danni</span>
+        <input type="text" data-field="damage" placeholder="1d8" autocomplete="off"></label>
+      <label class="field"><span class="field__label">Tipo</span>
+        <input type="text" data-field="damageType" placeholder="Tagliente" autocomplete="off"></label>
+      <label class="field field--check"><input type="checkbox" data-field="proficient"><span>Competente</span></label>
+      <div class="weapon__result">
+        <div class="stat stat--compact"><span class="stat__label">TpC</span><output class="stat__value" data-field-out="attack" data-format="mod"></output></div>
+        <div class="stat stat--compact"><span class="stat__label">Danni</span><output class="stat__value stat__value--sm" data-field-out="damageLabel"></output></div>
+      </div>
+      <button type="button" class="btn btn--icon btn--danger" data-action="remove-weapon" aria-label="Rimuovi arma">✕</button>
+    </div>
+  </template>
+</body>
+</html>

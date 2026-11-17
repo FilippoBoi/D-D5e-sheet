@@ -1,0 +1,168 @@
+/**
+ * Forma dello stato del personaggio, valori di default e validazione.
+ *
+ * Ogni valore che entra nel Model (da un input, da localStorage o da un
+ * file JSON importato) passa da `sanitizeValue`, quindi lo stato rimane
+ * sempre coerente anche con dati vecchi o manomessi.
+ */
+import { ABILITY_IDS } from '../data/abilities.js';
+import { ARMOR_IDS } from '../data/armors.js';
+import { CLASS_IDS, DEFAULT_CLASS_ID, getClass } from '../data/classes.js';
+import { SKILLS } from '../data/skills.js';
+import { clamp, clampInt, isPlainObject } from '../core/utils.js';
+
+export const SCHEMA_VERSION = 1;
+export const MAX_WEAPONS = 30;
+const MAX_TEXT_LENGTH = 20_000;
+const WEAPON_ABILITIES = ['str', 'dex'];
+
+/** Id univoco: randomUUID dove disponibile (contesti sicuri), altrimenti fallback. */
+function createId() {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `w-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Competenze nei tiri salvezza concesse da una classe. */
+export function classSaveProficiencies(classId) {
+  const { saves } = getClass(classId);
+  return Object.fromEntries(ABILITY_IDS.map((id) => [id, saves.includes(id)]));
+}
+
+export function createWeapon() {
+  return {
+    id: createId(),
+    name: '',
+    ability: 'str',
+    proficient: true,
+    magicBonus: 0,
+    damage: '1d8',
+    damageType: '',
+  };
+}
+
+export function createDefaultCharacter() {
+  return {
+    version: SCHEMA_VERSION,
+    info: {
+      name: '', player: '', race: '', background: '', alignment: '',
+      classId: DEFAULT_CLASS_ID, level: 1,
+    },
+    abilities: Object.fromEntries(ABILITY_IDS.map((id) => [id, 10])),
+    saveProficiencies: classSaveProficiencies(DEFAULT_CLASS_ID),
+    skills: Object.fromEntries(SKILLS.map((s) => [s.id, { proficient: false, expertise: false }])),
+    combat: {
+      speed: 9, hpMax: 10, hpCurrent: 10, hpTemp: 0,
+      deathSuccesses: 0, deathFailures: 0,
+    },
+    equipment: {
+      armorId: 'none', shield: false, magicBonus: 0, inventory: '',
+      coins: { mr: 0, ma: 0, me: 0, mo: 0, mp: 0 },
+    },
+    weapons: [],
+    spells: {
+      cantrips: '', prepared: '',
+      slotsUsed: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), 0])),
+    },
+    notes: { traits: '', backstory: '' },
+  };
+}
+
+/**
+ * Regole specifiche per percorso, applicate dopo la conversione di tipo.
+ * Una regola che restituisce `undefined` rifiuta il valore.
+ */
+const RULES = [
+  [/^info\.level$/, (v) => clampInt(v, 1, 20)],
+  [/^info\.classId$/, (v) => (CLASS_IDS.includes(v) ? v : undefined)],
+  [/^abilities\.\w+$/, (v) => clampInt(v, 1, 30)],
+  [/^combat\.hpMax$/, (v) => clampInt(v, 1, 999)],
+  [/^combat\.(hpCurrent|hpTemp)$/, (v) => clampInt(v, 0, 999)],
+  [/^combat\.speed$/, (v) => clamp(Math.round(v * 2) / 2, 0, 99)],
+  [/^combat\.death(Successes|Failures)$/, (v) => clampInt(v, 0, 3)],
+  [/^equipment\.armorId$/, (v) => (ARMOR_IDS.includes(v) ? v : undefined)],
+  [/^(equipment|weapons\.\d+)\.magicBonus$/, (v) => clampInt(v, -5, 10)],
+  [/^weapons\.\d+\.ability$/, (v) => (WEAPON_ABILITIES.includes(v) ? v : undefined)],
+  [/^weapons\.\d+\.(name|damage|damageType)$/, (v) => v.slice(0, 80)],
+  [/^spells\.slotsUsed\.\d$/, (v) => clampInt(v, 0, 9)],
+  [/^equipment\.coins\.\w+$/, (v) => clampInt(v, 0, 9_999_999)],
+];
+
+/** Converte `raw` nello stesso tipo del valore attuale; undefined se impossibile. */
+function coerceToType(raw, current) {
+  switch (typeof current) {
+    case 'number': {
+      const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw).replace(',', '.'));
+      return Number.isFinite(n) ? n : undefined;
+    }
+    case 'boolean':
+      return typeof raw === 'boolean' ? raw : raw === 'true' || raw === 1;
+    case 'string':
+      return typeof raw === 'string' || typeof raw === 'number'
+        ? String(raw).slice(0, MAX_TEXT_LENGTH)
+        : undefined;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Restituisce un valore valido per `path`, oppure `current` se `raw` non è accettabile.
+ * @param {string} path
+ * @param {unknown} raw
+ * @param {unknown} current
+ */
+export function sanitizeValue(path, raw, current) {
+  const value = coerceToType(raw, current);
+  if (value === undefined) return current;
+  const rule = RULES.find(([pattern]) => pattern.test(path));
+  if (!rule) return value;
+  const result = rule[1](value);
+  return result === undefined ? current : result;
+}
+
+/** Copia nel target solo le chiavi che esistono già nei default (niente chiavi estranee). */
+function mergeKnownKeys(target, source, prefix = '') {
+  for (const key of Object.keys(target)) {
+    if (!Object.hasOwn(source, key)) continue;
+    const path = prefix ? `${prefix}.${key}` : key;
+    const current = target[key];
+    if (Array.isArray(current)) continue; // gli array sono gestiti a parte
+    if (isPlainObject(current)) {
+      if (isPlainObject(source[key])) mergeKnownKeys(current, source[key], path);
+      continue;
+    }
+    target[key] = sanitizeValue(path, source[key], current);
+  }
+  return target;
+}
+
+function normalizeWeapon(raw, index, usedIds) {
+  const weapon = createWeapon();
+  if (!isPlainObject(raw)) return weapon;
+  for (const key of Object.keys(weapon)) {
+    if (key === 'id' || !Object.hasOwn(raw, key)) continue;
+    weapon[key] = sanitizeValue(`weapons.${index}.${key}`, raw[key], weapon[key]);
+  }
+  if (typeof raw.id === 'string' && raw.id.length <= 64 && !usedIds.has(raw.id)) weapon.id = raw.id;
+  usedIds.add(weapon.id);
+  return weapon;
+}
+
+/**
+ * Costruisce uno stato completo e valido a partire da dati qualsiasi
+ * (salvataggio precedente, JSON importato, null).
+ * @param {unknown} raw
+ */
+export function normalizeCharacter(raw) {
+  const state = createDefaultCharacter();
+  if (!isPlainObject(raw)) return state;
+
+  mergeKnownKeys(state, raw);
+
+  const usedIds = new Set();
+  state.weapons = Array.isArray(raw.weapons)
+    ? raw.weapons.slice(0, MAX_WEAPONS).map((w, i) => normalizeWeapon(w, i, usedIds))
+    : [];
+  state.version = SCHEMA_VERSION;
+  return state;
+}
