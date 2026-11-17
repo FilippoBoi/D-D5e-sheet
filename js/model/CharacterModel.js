@@ -8,10 +8,11 @@
 import { EventEmitter } from '../core/EventEmitter.js';
 import { getByPath, setByPath } from '../core/utils.js';
 import {
-  MAX_WEAPONS, classSaveProficiencies, createDefaultCharacter, createWeapon,
+  MAX_AC_ITEMS, MAX_WEAPONS, classSaveProficiencies, createAcItem, createDefaultCharacter, createWeapon,
   normalizeCharacter, sanitizeValue,
 } from './characterSchema.js';
 import { deriveStats } from './deriveStats.js';
+import { feetToMeters, getRace } from '../data/races.js';
 
 export class CharacterModel extends EventEmitter {
   /** @type {ReturnType<typeof createDefaultCharacter>} */
@@ -66,10 +67,31 @@ export class CharacterModel extends EventEmitter {
     // Regola di dominio: cambiando classe si applicano i suoi tiri salvezza.
     if (path === 'info.classId') {
       this.#state.saveProficiencies = classSaveProficiencies(value);
+      // Le scelte di abilità dipendono dalla classe: si ripartono da vuote.
+      this.#state.classSkills = createDefaultCharacter().classSkills;
+    }
+    // Regola di dominio: cambiando razza si impostano velocità e abilità fisse.
+    if (path === 'info.raceId') {
+      this.#applyRace(value);
+      // Le scelte dipendono dalla razza: si ripartono da vuote.
+      this.#state.info.raceChoices = createDefaultCharacter().info.raceChoices;
     }
 
     this.#emitChange(path);
     return true;
+  }
+
+  addAcItem() {
+    if (this.#state.equipment.acItems.length >= MAX_AC_ITEMS) return;
+    this.#state.equipment.acItems.push(createAcItem());
+    this.#emitChange('equipment.acItems');
+  }
+
+  /** @param {string} id */
+  removeAcItem(id) {
+    const before = this.#state.equipment.acItems.length;
+    this.#state.equipment.acItems = this.#state.equipment.acItems.filter((item) => item.id !== id);
+    if (this.#state.equipment.acItems.length !== before) this.#emitChange('equipment.acItems');
   }
 
   addWeapon() {
@@ -137,6 +159,20 @@ export class CharacterModel extends EventEmitter {
   }
 
   // --------------------------------------------------------------- Interni
+
+  /**
+   * Applica i valori automatici della razza: velocità e abilità con competenza fissa.
+   * Le competenze già attive restano tali; nessuna razza azzera ciò che l'utente ha scelto.
+   * @param {string} raceId
+   */
+  #applyRace(raceId) {
+    const race = getRace(raceId);
+    if (!race) return;
+    this.#state.combat.speed = feetToMeters(race.speedFt);
+    for (const skillId of race.skills) {
+      this.#state.skills[skillId].proficient = true;
+    }
+  }
 
   #emitChange(path) {
     this.emit('change', { path });

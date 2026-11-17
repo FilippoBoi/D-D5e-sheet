@@ -75,6 +75,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   transition: opacity 0.3s;
 }
 
+/* Su telefono la testata occupa meno spazio: più righe di scheda visibili */
+@media (max-width: 599px) {
+  .app-header { padding: 0.6rem 0.75rem; gap: 0.5rem; }
+  .app-header h1 { font-size: 1.1rem; }
+  .app-header__logo { width: 28px; height: 28px; }
+  .toolbar .btn { min-height: 2.1rem; padding: 0.35rem 0.6rem; font-size: 0.8rem; }
+}
+
 /* ---------- Quickbar (riepilogo sticky) ---------- */
 .quickbar {
   position: sticky; top: 0; z-index: 10;
@@ -227,6 +235,34 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   border-radius: var(--radius-sm); border: 1px solid var(--teal); background: var(--teal-soft);
 }
 .notice--warning { border-color: var(--vermilion); background: var(--vermilion-soft); }
+
+/* Campi vuoti letti da data-out: mostra un trattino invece del nulla */
+[data-out]:empty::before { content: "—"; color: var(--text-muted); }
+
+/* ---------- Origine (razza e classe) ---------- */
+.origin {
+  padding: 0.75rem 0.9rem; background: var(--card-raised);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.origin__title { margin-bottom: 0.5rem; }
+.origin__list { margin: 0; display: grid; gap: 0.4rem; grid-template-columns: 1fr; }
+@media (min-width: 600px) { .origin__list { grid-template-columns: repeat(2, 1fr); } }
+.origin__list div { display: grid; gap: 0.1rem; }
+.origin__list dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.origin__list dd { margin: 0; font-size: 0.9rem; }
+
+/* Scelte di razza e competenze di classe */
+.origin__choices { margin-top: 0.6rem; }
+.class-skills { display: grid; gap: var(--gap); }
+.class-skills .hint { margin-top: -0.2rem; }
+
+/* Oggetti che modificano la CA */
+.ac-items { display: grid; gap: 0.5rem; }
+.ac-item {
+  display: grid; gap: 0.5rem; align-items: end;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  padding: 0.6rem; background: var(--card-raised); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
 
 /* ---------- Pulsanti ---------- */
 .btn {

@@ -63,6 +63,8 @@ export class CharacterController {
   #handleAction(action, data) {
     const handlers = {
       'add-weapon': () => this.#model.addWeapon(),
+      'add-ac-item': () => this.#model.addAcItem(),
+      'remove-ac-item': () => this.#model.removeAcItem(data.id),
       'remove-weapon': () => this.#model.removeWeapon(data.id),
       'set-pip': () => this.#togglePip(data.path, Number(data.index)),
       'damage': () => this.#model.applyDamage(this.#view.takeHpDelta()),

@@ -54,9 +54,13 @@ export class CharacterView {
    * @param {Array<{id:string,name:string}>} catalogs.classes
    * @param {string[]} catalogs.alignments
    */
-  build({ abilities, skills, armors, armorCategories, classes, alignments }) {
+  build({ abilities, skills, armors, armorCategories, classes, races, alignments }) {
     const shortOf = Object.fromEntries(abilities.map((a) => [a.id, a.short]));
 
+    this.#q('[data-options="races"]').append(
+      el('option', { value: '', text: '—' }),
+      ...races.map((r) => el('option', { value: r.id, text: r.name })),
+    );
     this.#q('[data-options="classes"]').append(
       ...classes.map((c) => el('option', { value: c.id, text: c.name })),
     );
@@ -122,6 +126,9 @@ export class CharacterView {
     this.#renderSpellSlots(derived.spellcasting.slots);
     this.#renderFeatures(derived.features);
     this.#renderResources(derived.resources);
+    this.#renderRaceChoices(derived.race?.choices ?? []);
+    this.#renderClassSkills(derived.classInfo.skillSlots);
+    this.#renderAcItems(state.equipment.acItems);
 
     // 2. Valori: input, output, pallini, visibilità
     this.#qa('[data-bind]').forEach((input) => this.#syncInput(input));
@@ -211,6 +218,55 @@ export class CharacterView {
     this.#q('[data-list="resources"]').replaceChildren(...resources.map((r) => el('div', { class: 'stat' }, [
       el('span', { class: 'stat__label', text: r.label }),
       el('span', { class: 'stat__value', text: r.value }),
+    ])));
+  }
+
+  /** Menu a tendina per le scelte della razza (aumenti, abilità, opzione singola). */
+  #renderRaceChoices(choices) {
+    const key = choices.map((c) => `${c.key}:${c.label}:${c.options.length}`).join('|');
+    if (!this.#shouldRebuild('race-choices', key)) return;
+
+    this.#q('[data-list="race-choices"]').replaceChildren(...choices.map((choice) => el('label', { class: 'field' }, [
+      el('span', { class: 'field__label', text: choice.label }),
+      el('select', { dataset: { bind: `info.raceChoices.${choice.key}` } }, [
+        el('option', { value: '', text: '—' }),
+        ...choice.options.map((o) => el('option', { value: o.value, text: o.label })),
+      ]),
+    ])));
+  }
+
+  /** Menu a tendina per le competenze in abilità scelte dalla classe. */
+  #renderClassSkills(slots) {
+    const key = slots.map((s) => `${s.key}:${s.options.length}`).join('|');
+    if (!this.#shouldRebuild('class-skills', key)) return;
+
+    this.#q('[data-list="class-skills"]').replaceChildren(...slots.map((slot, i) => el('label', { class: 'field' }, [
+      el('span', { class: 'field__label', text: `Abilità di classe ${i + 1}` }),
+      el('select', { dataset: { bind: `classSkills.${slot.key}` } }, [
+        el('option', { value: '', text: '—' }),
+        ...slot.options.map((o) => el('option', { value: o.value, text: o.label })),
+      ]),
+    ])));
+  }
+
+  /** Oggetti che modificano la CA: nome e bonus, con rimozione. */
+  #renderAcItems(items) {
+    const key = items.map((item) => item.id).join('|');
+    if (!this.#shouldRebuild('ac-items', key)) return;
+
+    this.#q('[data-list="ac-items"]').replaceChildren(...items.map((item, index) => el('div', { class: 'ac-item' }, [
+      el('label', { class: 'field' }, [
+        el('span', { class: 'field__label', text: 'Oggetto' }),
+        el('input', { type: 'text', autocomplete: 'off', placeholder: 'Anello di protezione', dataset: { bind: `equipment.acItems.${index}.name` } }),
+      ]),
+      el('label', { class: 'field' }, [
+        el('span', { class: 'field__label', text: 'Bonus CA' }),
+        el('input', { type: 'number', min: '-5', max: '10', inputmode: 'numeric', dataset: { bind: `equipment.acItems.${index}.bonus` } }),
+      ]),
+      el('button', {
+        type: 'button', class: 'btn btn--icon btn--danger', 'aria-label': 'Rimuovi oggetto',
+        dataset: { action: 'remove-ac-item', id: item.id }, text: '✕',
+      }),
     ])));
   }
 

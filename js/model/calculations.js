@@ -35,9 +35,10 @@ export function armorDexBonus(category, dexMod) {
  * @param {number} [p.magicBonus]
  * @param {Record<string, number>} p.mods
  * @param {{ability: string, allowsShield: boolean} | null} [p.unarmoredDefense]
+ * @param {Array<{label: string, value: number}>} [p.extraItems] oggetti che danno CA (anelli, mantelli...)
  * @returns {{ total: number, parts: Array<{label: string, value: number}> }}
  */
-export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unarmoredDefense = null }) {
+export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unarmoredDefense = null, extraItems = [] }) {
   const parts = [];
 
   if (armor.category === 'none') {
@@ -55,6 +56,9 @@ export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unar
 
   if (hasShield) parts.push({ label: 'Scudo', value: SHIELD_AC_BONUS });
   if (magicBonus) parts.push({ label: 'Magia', value: magicBonus });
+  for (const item of extraItems) {
+    if (item.value) parts.push(item);
+  }
 
   return { total: parts.reduce((sum, p) => sum + p.value, 0), parts };
 }
