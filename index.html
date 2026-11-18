@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Scheda personaggio interattiva per Dungeons & Dragons 5E: calcoli automatici, salvataggio locale, nessuna dipendenza.">
-  <meta name="theme-color" content="#101416">
+  <meta name="theme-color" content="#120F1C">
   <!-- I link di invito contengono un token: non va mai inviato come Referer ad altri siti -->
   <meta name="referrer" content="no-referrer">
   <!-- Il Master resta collegato con un token nel browser: la pagina carica solo i propri file e parla solo con
@@ -13,6 +13,7 @@
   <title>Scheda Personaggio D&amp;D 5E</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23BF2215' d='M16 1 29 8.5v15L16 31 3 23.5v-15z'/%3E%3Cpath fill='%23101416' d='M16 7l7 12H9z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/styles.css">
+  <script src="js/theme.js"></script>
   <!-- Entry point: avvia Model, View e Controller (vedi js/app.js) -->
   <script type="module" src="js/app.js"></script>
 </head>
@@ -32,6 +33,10 @@
         <svg viewBox="0 0 60 30" aria-hidden="true" focusable="false"><clipPath id="flag-uk-s"><path d="M0 0v30h60V0z"/></clipPath><clipPath id="flag-uk-t"><path d="M30 15h30v15zv15h-30zh-30v-15zv-15h30z"/></clipPath><g clip-path="url(#flag-uk-s)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-t)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>
       </button>
     </div>
+    <button type="button" class="theme-btn" data-action="toggle-theme" title="Cambia tema (chiaro/scuro)" aria-label="Cambia tema (chiaro/scuro)" aria-pressed="false">
+      <svg class="theme-btn__moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      <svg class="theme-btn__sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
     <nav class="toolbar" aria-label="Azioni sulla scheda">
       <button type="button" class="btn btn--ghost" data-action="expand-all">Espandi tutto</button>
       <button type="button" class="btn btn--ghost" data-action="collapse-all">Comprimi tutto</button>
