@@ -8,6 +8,8 @@ An interactive character sheet for **Dungeons & Dragons 5th Edition**, written i
 
 The interface is available in **Italian and English** (flag selector in the header). It follows your browser language by default.
 
+> **New: Flutter app.** [`flutter/`](flutter/README.md) holds the same sheet rewritten in Flutter for Android, iOS, web and desktop, with the same calculations (checked by a parity test against this version) and the same save format. This web version is unchanged.
+
 ## Features
 
 | Section | What it does |

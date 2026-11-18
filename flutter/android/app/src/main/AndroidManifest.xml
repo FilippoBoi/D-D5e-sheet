@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="dnd5e_sheet"
+        android:label="Scheda D&amp;D 5E"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

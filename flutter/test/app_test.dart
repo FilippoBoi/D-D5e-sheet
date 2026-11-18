@@ -1,10 +1,15 @@
 // Prove di interfaccia: l'app parte, si usa come quella web e le descrizioni sono collegate.
 import 'package:dnd5e_sheet/app_controller.dart';
+import 'package:dnd5e_sheet/auth/account_service.dart';
+import 'package:dnd5e_sheet/auth/auth_service.dart';
+import 'package:dnd5e_sheet/session_controller.dart';
 import 'package:dnd5e_sheet/i18n.dart';
 import 'package:dnd5e_sheet/main.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'fake_backend.dart';
 
 Future<AppController> boot(WidgetTester tester, {Map<String, Object> prefs = const {}}) async {
   // La lingua predefinita dipende dal dispositivo (nei test è l'inglese): si fissa l'italiano.
@@ -15,7 +20,7 @@ Future<AppController> boot(WidgetTester tester, {Map<String, Object> prefs = con
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   addTearDown(app.dispose);
-  await tester.pumpWidget(SheetApp(app: app));
+  await tester.pumpWidget(SheetApp(app: app, enableRemote: false));
   await tester.pump();
   return app;
 }
@@ -74,5 +79,41 @@ void main() {
     await app.saveNow();
     final saved = app.storage.loadCharacter();
     expect((saved as Map)['info']['name'], 'Thalia');
+  });
+
+  testWidgets('un giocatore entra con il token, vede la scheda condivisa e la barra di sessione', (tester) async {
+    final app = await boot(tester);
+    final backend = FakeBackend()
+      ..doc = {'info': {'name': 'Thalia'}}
+      ..revision = 1;
+    final api = apiFor(backend);
+    final account = AccountService(url: 'https://x.test', anonKey: 'k', storage: app.storage);
+    final session = SessionController(app: app, auth: AuthService(api: api, storage: app.storage, account: account), api: api, pollEvery: const Duration(hours: 1));
+    addTearDown(session.dispose);
+    await tester.pumpWidget(SheetApp(key: UniqueKey(), app: app, session: session, enableRemote: false));
+    await tester.pump();
+
+    await tester.tap(find.text('Accedi / Campagna'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'PG-XXXX-XXXX-XXXX'), 'pg-aaaa-bbbb-cccc');
+    await tester.tap(find.text('Entra'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Giocatore'), findsWidgets);
+    expect(find.text('Thalia'), findsWidgets);
+    expect(find.textContaining('sincronizzata'), findsOneWidget);
+    expect((app.model.state['info'] as Map)['name'], 'Thalia');
+    expect(app.isRemote, isTrue);
+
+    // Una modifica locale arriva al server; uscendo si torna alla scheda locale.
+    app.model.set('info.player', 'Mario');
+    await app.saveNow();
+    expect((backend.doc['info'] as Map)['player'], 'Mario');
+    await tester.tap(find.text('Esci'));
+    // L'uscita passa da operazioni asincrone reali (salvataggi): si lascia girare il ciclo vero.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pumpAndSettle();
+    expect(app.isRemote, isFalse);
+    expect(find.text('Accedi / Campagna'), findsOneWidget);
   });
 }

@@ -57,4 +57,8 @@ class Storage {
 
   Object? loadSources() => _read('$key:sources');
   Future<bool> saveSources(Object? data) => _write('$key:sources', data);
+
+  /// Oggetti JSON salvati con un nome libero (sessioni, account…).
+  Object? loadObject(String name) => _read('$key:$name');
+  Future<bool> saveObject(String name, Object? value) => _write('$key:$name', value);
 }

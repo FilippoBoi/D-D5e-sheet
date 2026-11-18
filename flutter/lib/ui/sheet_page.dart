@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import '../app_controller.dart';
 import '../i18n.dart';
 import '../model/utils.dart';
+import '../session_controller.dart';
+import 'session_ui.dart';
 import 'panels_gear.dart';
 import 'panels_info.dart';
 import 'panels_lore.dart';
@@ -17,8 +19,11 @@ import 'widgets.dart';
 const _levelPromptDelay = Duration(milliseconds: 900);
 
 class SheetPage extends StatefulWidget {
-  const SheetPage({super.key, required this.app});
+  const SheetPage({super.key, required this.app, this.session});
   final AppController app;
+
+  /// Accesso e collaborazione online; null se il backend non è configurato (l'app resta solo locale).
+  final SessionController? session;
 
   @override
   State<SheetPage> createState() => _SheetPageState();
@@ -140,7 +145,7 @@ class _SheetPageState extends State<SheetPage> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: Listenable.merge([app, app.model]),
+        listenable: Listenable.merge([app, app.model, ?widget.session]),
         builder: (context, _) {
           final d = app.model.derived;
           final c = context.colors;
@@ -153,7 +158,7 @@ class _SheetPageState extends State<SheetPage> {
                 open: app.panelOpen(id, defaultOpen: open), onToggle: (v) => app.setPanelOpen(id, v), children: [body],
               );
 
-          return Scaffold(
+          final scaffold = Scaffold(
             appBar: AppBar(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               title: Text(tr('Scheda Personaggio'), style: displayStyle(context, size: 20)),
@@ -202,6 +207,10 @@ class _SheetPageState extends State<SheetPage> {
                     key: const Key('sheet-list'),
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
                     children: [
+                      if (widget.session != null) ...[
+                        SessionBar(session: widget.session!, character: app.model.state['info'] as Json),
+                        const SizedBox(height: 8),
+                      ],
                       panel('info', tr('Informazioni Generali & Classe'), InfoPanel(app: app), open: true),
                       const SizedBox(height: 12),
                       panel('combat', tr('Combattimento & Punti Ferita'), CombatPanel(app: app), open: true),
@@ -224,6 +233,7 @@ class _SheetPageState extends State<SheetPage> {
               ),
             ),
           );
+          return widget.session == null ? scaffold : SessionDialogs(session: widget.session!, child: scaffold);
         },
       );
 }

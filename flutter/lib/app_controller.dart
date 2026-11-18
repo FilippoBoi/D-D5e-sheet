@@ -9,6 +9,8 @@ import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'data/catalog.dart';
 import 'i18n.dart';
 import 'model/character_model.dart';
+import 'sync/character_sync.dart';
+import 'sync/diff.dart';
 import 'services/storage.dart';
 
 /// Collega modello, storage, lingua e tema (il "controller" dell'app).
@@ -21,6 +23,11 @@ class AppController extends ChangeNotifier {
   ThemeMode themeMode;
   final Map<String, dynamic> panels;
   Timer? _saveTimer;
+  CharacterSync? _remote;
+  StreamSubscription<RemoteChange>? _remoteSub;
+
+  /// Falso quando l'app è in secondo piano: la sincronizzazione periodica si ferma.
+  bool isForeground = true;
   Json? _spellText;
 
   /// Messaggio breve da mostrare all'utente (snackbar); la UI lo legge e lo azzera.
@@ -52,14 +59,63 @@ class AppController extends ChangeNotifier {
   void _scheduleSave() {
     // Cambiare lingua non modifica il personaggio: niente salvataggio.
     if (model.lastPath == 'lang') return;
+    if (model.lastPath == '*' && _remote != null && _remote!.state == SyncState.revoked) return;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 400), saveNow);
   }
 
+  /// Salva subito: sul server se si sta modificando una scheda condivisa, altrimenti in locale.
   Future<void> saveNow() async {
     _saveTimer?.cancel();
-    await storage.saveCharacter(model.snapshot());
+    _saveTimer = null;
     await storage.saveSources(model.sources.toList());
+    final remote = _remote;
+    if (remote != null) {
+      if (await remote.push(model.snapshot())) status.value = pick('Sincronizzato ✓', 'Synced ✓');
+      return;
+    }
+    await storage.saveCharacter(model.snapshot());
+  }
+
+  // ------------------------------------------------- Scheda condivisa
+
+  bool get isRemote => _remote != null;
+  bool get hasLocalCharacter => storage.loadCharacter() != null;
+  Object? get localCharacter => storage.loadCharacter();
+
+  /// Passa a una scheda condivisa. La scheda locale resta intatta: finché si è collegati i salvataggi vanno solo al server.
+  /// Con [upload] `data` è la scheda locale e va inviata (la base resta vuota: il primo invio manda tutto).
+  void attachRemote(CharacterSync sync, Json data, {bool upload = false}) {
+    detachRemote();
+    _remote = sync;
+    model.load(data);
+    if (!upload) {
+      sync.markSynced(model.snapshot());
+    } else {
+      sync.push(); // prima che il salvataggio ritardato confronti qualcosa
+    }
+    _remoteSub = sync.onRemote.listen((change) {
+      if (_remote != sync) return;
+      model.load(deepMerge(model.snapshot(), change.changes) as Json);
+      sync.markSynced(model.snapshot());
+      status.value = change.updatedBy == 'admin' ? pick('Aggiornata dal Master', 'Updated by the DM') : pick('Aggiornata dal giocatore', 'Updated by the player');
+    });
+    sync.start();
+    notifyListeners();
+  }
+
+  /// Torna alla scheda locale.
+  void detachRemote() {
+    final remote = _remote;
+    if (remote == null) return;
+    // Invia ciò che era ancora in attesa del salvataggio ritardato.
+    if (_saveTimer?.isActive ?? false) remote.push(model.snapshot());
+    _saveTimer?.cancel();
+    remote.stop();
+    _remoteSub?.cancel();
+    _remote = null;
+    model.load(storage.loadCharacter());
+    notifyListeners();
   }
 
   bool panelOpen(String id, {bool defaultOpen = false}) => (panels[id] as bool?) ?? defaultOpen;
@@ -113,7 +169,7 @@ class AppController extends ChangeNotifier {
 
   void reset() {
     model.reset();
-    storage.clearCharacter();
+    if (_remote == null) storage.clearCharacter(); // la scheda locale non si tocca mentre si è in campagna
   }
 
   /// Testi degli incantesimi: ~700 KB, si caricano alla prima apertura di una descrizione.

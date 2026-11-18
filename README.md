@@ -6,6 +6,8 @@ Scheda personaggio interattiva per **Dungeons & Dragons 5ª Edizione**, scritta 
 
 **▶ Prova online:** <https://filippoboi.github.io/D-D5e-sheet/>
 
+> **Novità: app Flutter.** In [`flutter/`](flutter/README.md) c'è la stessa scheda riscritta in Flutter per Android, iOS, web e desktop, con gli stessi calcoli (verificati da un test di parità contro questa versione) e lo stesso formato di salvataggio. Questa versione web resta invariata.
+
 ## Funzionalità
 
 | Sezione | Cosa fa |
