@@ -104,7 +104,7 @@ Il backend ha un suo test di sicurezza (`supabase/tests/security.sql`): carica l
 psql -v ON_ERROR_STOP=1 -f supabase/tests/prepare.sql -f supabase/schema.sql -f supabase/tests/security.sql
 ```
 
-(`prepare.sql` crea i ruoli e lo schema che Supabase fornisce già: su Supabase non serve.)
+(`prepare.sql` crea i ruoli e lo schema che Supabase fornisce già: su Supabase non serve. `legacy.sql` simula un database con la versione precedente dello schema, per provare l'aggiornamento: in CI gira prima di `schema.sql`.)
 
 ## Pubblicazione su GitHub Pages
 
@@ -142,6 +142,15 @@ Il Master condivide il **link di invito** (`…/?t=TOKEN`) o il token da incolla
 2. In **SQL Editor** incolla ed esegui `supabase/schema.sql` (si può rieseguire dopo ogni aggiornamento).
 3. In **Project Settings → API** copia *Project URL* e la chiave *anon / publishable* in `js/config.js`. Sono pubbliche per progettazione: la sicurezza sta nel database. **Non** usare mai la chiave `service_role`.
 4. Pubblica come al solito. Apri il sito → **Accedi / Campagna** → *Crea campagna*.
+5. *(Consigliato)* Imposta un **codice di creazione**, così solo chi lo conosce può creare campagne sul tuo progetto. Nel SQL Editor:
+
+   ```sql
+   select set_creation_code('una frase lunga e tua');
+   ```
+
+   Da quel momento il form *Crea campagna* mostra il campo "Codice" e il database rifiuta la creazione senza il codice giusto. Le campagne già esistenti e chi entra con un token non cambiano. Per toglierlo: `select set_creation_code(null);`. Nel database resta solo l'hash; scegli una frase lunga, perché non c'è un limite di tentativi.
+
+**Aggiornare uno schema già installato**: incolla di nuovo `supabase/schema.sql` nel SQL Editor ed eseguilo. È sicuro farlo con dati presenti e non cancella campagne né schede.
 
 ### Sicurezza, in breve
 
@@ -149,7 +158,7 @@ Il Master condivide il **link di invito** (`…/?t=TOKEN`) o il token da incolla
 - Il token admin è salvato solo come hash e si vede alla creazione (il browser lo ricorda e il pannello lo mostra). I token dei giocatori sono salvati in chiaro perché il Master deve poterli ricopiare: chi ha il token di una scheda può modificarla, quindi trattalo come una password.
 - Token da 60 bit casuali: non si indovinano. Non c'è un limite di frequenza sui tentativi, di proposito: un'attesa nel database terrebbe occupata una connessione per ogni tentativo e permetterebbe a chiunque di esaurirle con poche richieste. Per un tavolo di gioco è adeguato, non per dati sensibili.
 - I link di invito contengono il token: la pagina non invia mai il Referer ad altri siti e toglie il token dall'indirizzo dopo l'ingresso. Resta però nella cronologia del browser da cui il link è stato aperto; se il dubbio c'è, il Master può rigenerare il token.
-- Chiunque conosca l'URL del progetto può creare campagne (nessun account richiesto). Il limite è di 50 schede per campagna e 128 KB per scheda (una scheda reale ne occupa pochi).
+- Senza codice di creazione (vedi sopra) chiunque conosca l'URL del progetto può creare campagne, perché non servono account: non vede né tocca le altre, ma usa il tuo spazio. Con il codice impostato lo può fare solo chi lo conosce. In ogni caso il limite è di 50 schede per campagna e 128 KB per scheda (una scheda reale ne occupa pochi).
 - Il piano gratuito di Supabase mette in pausa i progetti inattivi per qualche settimana: al primo accesso basta riattivarlo dal pannello.
 
 ## Dati e privacy

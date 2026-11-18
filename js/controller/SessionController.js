@@ -164,11 +164,13 @@ export class SessionController {
         const session = await this.#auth.login(token);
         await this.#enterActiveSession({ autoOpenPanel: session.role === 'admin' });
       },
-      onCreate: async (name) => {
-        await this.#auth.createCampaign(name);
+      onCreate: async (name, code) => {
+        await this.#auth.createCampaign(name, code);
         await this.#enterActiveSession({ autoOpenPanel: true });
       },
     });
+    // La finestra si apre subito; il campo "Codice" compare appena il server dice che serve.
+    this.#auth.creationRequiresCode().then((required) => { if (required) this.#view.revealCreationCode(); });
   }
 
   #logout() {

@@ -11,6 +11,7 @@ const ERRORS = () => ({
   invalid_token: pick('Token non valido o revocato.', 'Invalid or revoked token.'),
   network: pick('Server non raggiungibile. Controlla la connessione.', 'Server unreachable. Check your connection.'),
   invalid_name: pick('Inserisci un nome.', 'Enter a name.'),
+  invalid_code: pick('Codice di creazione non valido.', 'Invalid creation code.'),
   limit_reached: pick('Limite di 50 schede per campagna raggiunto.', 'Limit of 50 sheets per campaign reached.'),
   unknown: pick('Errore imprevisto del server.', 'Unexpected server error.'),
 });
@@ -82,7 +83,7 @@ export class AuthView {
   // ------------------------------------------------------------- Login
 
   /**
-   * @param {{onLogin: (token: string) => Promise<void>, onCreate: (name: string) => Promise<void>}} on
+   * @param {{onLogin: (token: string) => Promise<void>, onCreate: (name: string, code: string) => Promise<void>}} on
    *   i callback lanciano un errore con `code` se qualcosa va storto
    */
   showLogin(on) {
@@ -96,6 +97,12 @@ export class AuthView {
       placeholder: pick('Nome della campagna', 'Campaign name'), 'aria-label': pick('Nome della campagna', 'Campaign name'),
     });
 
+    const codeInput = el('input', {
+      type: 'password', class: 'input', autocomplete: 'off', hidden: true, 'data-ref': 'creation-code',
+      placeholder: pick('Codice di creazione (te lo dà chi gestisce il sito)', 'Creation code (given by whoever runs the site)'),
+      'aria-label': pick('Codice di creazione', 'Creation code'),
+    });
+
     const submit = (action) => async (event) => {
       event.preventDefault();
       error.textContent = '';
@@ -105,6 +112,7 @@ export class AuthView {
         await action(); // il controller decide cosa mostrare dopo (pannello, scheda...) e chiude se serve
       } catch (e) {
         error.textContent = errorText(e);
+        if (e?.code === 'invalid_code') { codeInput.hidden = false; codeInput.focus(); } // se non lo si sapeva, ora sì
         buttons.forEach((b) => { b.disabled = false; });
       }
     };
@@ -125,14 +133,21 @@ export class AuthView {
           'Riceverai un token admin: conservalo, serve per rientrare da un altro dispositivo.',
           'You will get an admin token: keep it, you need it to sign in from another device.') }),
         nameInput,
+        codeInput,
         el('button', { type: 'submit', class: 'btn', text: pick('Crea campagna', 'Create campaign') }),
       ]),
       error,
     ]);
     const [loginForm, createForm] = this.#dialog.querySelectorAll('form');
     loginForm.addEventListener('submit', submit(() => on.onLogin(tokenInput.value)));
-    createForm.addEventListener('submit', submit(() => on.onCreate(nameInput.value)));
+    createForm.addEventListener('submit', submit(() => on.onCreate(nameInput.value, codeInput.value)));
     tokenInput.focus();
+  }
+
+  /** Mostra il campo "Codice di creazione" (se la finestra di login è aperta). */
+  revealCreationCode() {
+    const input = this.#dialog.querySelector('[data-ref="creation-code"]');
+    if (input) input.hidden = false;
   }
 
   // ------------------------------------------------------- Pannello admin
@@ -163,8 +178,11 @@ export class AuthView {
       ]),
     ]));
 
+    // Il pannello si ridisegna a ogni aggiornamento: testo e focus del campo "nuova scheda" vanno conservati.
+    const previous = this.#dialog.querySelector('[data-ref="label-input"]');
+    const hadFocus = previous !== null && previous === this.#dialog.ownerDocument.activeElement;
     const labelInput = el('input', {
-      type: 'text', class: 'input', maxlength: 80, autocomplete: 'off',
+      type: 'text', class: 'input', maxlength: 80, autocomplete: 'off', 'data-ref': 'label-input',
       placeholder: pick('Giocatore o personaggio (es. Mario)', 'Player or character (e.g. Mario)'),
       'aria-label': pick('Etichetta della nuova scheda', 'Label of the new sheet'),
     });
@@ -172,7 +190,13 @@ export class AuthView {
       labelInput,
       el('button', { type: 'submit', class: 'btn btn--teal', text: pick('+ Nuova scheda', '+ New sheet') }),
     ]);
-    addForm.addEventListener('submit', (event) => { event.preventDefault(); on.createCharacter(labelInput.value); });
+    labelInput.value = previous?.value ?? '';
+    addForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const label = labelInput.value;
+      labelInput.value = '';
+      on.createCharacter(label);
+    });
 
     const switcher = vm.campaigns.length > 1
       ? el('select', { class: 'input', 'aria-label': pick('Campagna', 'Campaign') },
@@ -203,6 +227,7 @@ export class AuthView {
       el('hr', { class: 'dialog__sep' }),
       this.#btn(pick('Elimina campagna', 'Delete campaign'), on.deleteCampaign, 'btn btn--danger'),
     ]);
+    if (hadFocus) labelInput.focus();
   }
 
   close() {

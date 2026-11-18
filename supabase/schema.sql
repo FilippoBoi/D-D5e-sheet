@@ -40,11 +40,18 @@ create table if not exists public.characters (
   created_at   timestamptz not null default now()
 );
 
+-- Impostazioni del progetto (oggi: solo l'hash del codice di creazione).
+create table if not exists public.settings (
+  key   text primary key,
+  value text not null
+);
+
 create index if not exists characters_campaign_idx on public.characters (campaign_id);
 
 alter table public.campaigns  enable row level security;
 alter table public.characters enable row level security;
-revoke all on public.campaigns, public.characters from anon, authenticated;
+alter table public.settings   enable row level security;
+revoke all on public.campaigns, public.characters, public.settings from anon, authenticated;
 
 -- ------------------------------------------------------- Funzioni interne
 -- Prefisso "_" e nessun GRANT: non sono chiamabili dal client.
@@ -137,16 +144,48 @@ end $$;
 
 -- ---------------------------------------------------------- API pubblica
 
+-- Il codice di creazione è opzionale. Se è impostato, solo chi lo conosce può creare
+-- campagne (le campagne esistenti e l'accesso con token non cambiano).
+-- Si imposta dal SQL Editor, non dal sito:  select set_creation_code('la tua frase');
+-- Per toglierlo:                            select set_creation_code(null);
+-- Nel database resta solo l'hash.
+create or replace function public.set_creation_code(p_code text)
+returns void language plpgsql security definer
+set search_path = public, extensions as $$
+begin
+  if p_code is null or btrim(p_code) = '' then
+    delete from settings where key = 'creation_code_hash';
+  else
+    insert into settings (key, value) values ('creation_code_hash', _hash(btrim(p_code)))
+      on conflict (key) do update set value = excluded.value;
+  end if;
+end $$;
+
+-- Il sito lo usa per mostrare il campo "Codice" solo quando serve.
+create or replace function public.creation_requires_code()
+returns boolean language sql stable security definer
+set search_path = public, extensions as $$
+  select exists (select 1 from settings where key = 'creation_code_hash');
+$$;
+
+-- Versione precedente (senza codice): va tolta, altrimenti resterebbe un secondo
+-- overload aggirabile.
+drop function if exists public.create_campaign(text);
+
 -- Crea una campagna: il token admin viene restituito UNA volta sola.
-create or replace function public.create_campaign(p_name text)
+create or replace function public.create_campaign(p_name text, p_code text default null)
 returns table (campaign_id uuid, campaign_name text, admin_token text)
 language plpgsql security definer
 set search_path = public, extensions as $$
 declare
   token text := _gen_token('ADM');
   clean text := left(btrim(coalesce(p_name, '')), 80);
+  required text := (select value from settings where key = 'creation_code_hash');
   cid uuid;
 begin
+  if required is not null and _hash(btrim(coalesce(p_code, ''))) <> required then
+    raise exception 'invalid_code';
+  end if;
   if clean = '' then raise exception 'invalid_name'; end if;
   insert into campaigns (name, admin_token_hash) values (clean, _hash(token)) returning id into cid;
   return query select cid, clean, token;
@@ -307,7 +346,8 @@ end $$;
 revoke execute on all functions in schema public from public, anon, authenticated;
 
 grant execute on function
-  public.create_campaign(text),
+  public.create_campaign(text, text),
+  public.creation_requires_code(),
   public.resolve_token(text),
   public.rename_campaign(text, text),
   public.delete_campaign(text),

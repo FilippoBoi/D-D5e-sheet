@@ -5,7 +5,7 @@
  * Gli errori del database (`raise exception 'invalid_token'`) diventano
  * RemoteError con `code` stabile; i problemi di rete hanno code 'network'.
  */
-const KNOWN_CODES = new Set(['invalid_token', 'forbidden', 'not_found', 'invalid_name', 'limit_reached', 'invalid_data']);
+const KNOWN_CODES = new Set(['invalid_token', 'forbidden', 'not_found', 'invalid_name', 'invalid_code', 'limit_reached', 'invalid_data']);
 
 /** Sotto questa soglia la richiesta può usare keepalive (sopravvive alla chiusura pagina). */
 const KEEPALIVE_MAX_BYTES = 60_000;

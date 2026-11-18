@@ -106,9 +106,23 @@ export class AuthService {
     });
   }
 
-  /** Crea una campagna e ne diventa admin. @returns {Promise<Session>} */
-  async createCampaign(name) {
-    const [row] = (await this.#api.rpc('create_campaign', { p_name: name })) ?? [];
+  /** Il progetto richiede un codice per creare campagne? (false se non si riesce a chiederlo) */
+  async creationRequiresCode() {
+    try {
+      return (await this.#api.rpc('creation_requires_code')) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Crea una campagna e ne diventa admin.
+   * @param {string} name
+   * @param {string} [code] codice di creazione, se il progetto lo richiede
+   * @returns {Promise<Session>}
+   */
+  async createCampaign(name, code = '') {
+    const [row] = (await this.#api.rpc('create_campaign', { p_name: name, p_code: code.trim() || null })) ?? [];
     return this.#store({
       token: row.admin_token,
       role: 'admin',

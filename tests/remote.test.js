@@ -15,15 +15,19 @@ const ADMIN = 'ADM-ABCD-EFGH-JKMN';
 /** Finto database: stessa semantica delle funzioni SQL (fusione in profondità, revisione). */
 function fakeServer() {
   const calls = [];
-  const state = { data: {}, revision: 0, updatedBy: '', validTokens: new Set([PLAYER, ADMIN]), offline: false };
-  const rpc = async (fn, args) => {
+  const state = { data: {}, revision: 0, updatedBy: '', validTokens: new Set([PLAYER, ADMIN]), offline: false, creationCode: null };
+  const rpc = async (fn, args = {}) => {
     calls.push([fn, args]);
     if (state.offline) { const e = new RemoteError('network'); throw e; }
     const token = args.p_token;
-    if (fn !== 'create_campaign' && !state.validTokens.has(token)) throw new RemoteError('invalid_token');
+    if (fn !== 'create_campaign' && fn !== 'creation_requires_code' && !state.validTokens.has(token)) throw new RemoteError('invalid_token');
     const role = token === ADMIN ? 'admin' : 'player';
     if (fn === 'resolve_token') return [{ role, campaign_id: 'c1', campaign_name: 'Strahd', character_id: role === 'player' ? 'ch1' : null }];
-    if (fn === 'create_campaign') return [{ campaign_id: 'c1', campaign_name: args.p_name, admin_token: ADMIN }];
+    if (fn === 'creation_requires_code') return state.creationCode !== null;
+    if (fn === 'create_campaign') {
+      if (state.creationCode !== null && args.p_code !== state.creationCode) throw new RemoteError('invalid_code');
+      return [{ campaign_id: 'c1', campaign_name: args.p_name, admin_token: ADMIN }];
+    }
     if (fn === 'get_character') return [{ id: 'ch1', data: structuredClone(state.data), revision: state.revision, updated_by: state.updatedBy }];
     if (fn === 'character_revision') return state.revision;
     if (fn === 'save_character') {
@@ -59,6 +63,7 @@ test('RemoteApi: chiama la funzione giusta con la chiave anon e restituisce il J
 test('RemoteApi: errori del database → RemoteError con codice; rete assente → network', async () => {
   const failing = (status, body) => new RemoteApi({ url: 'https://x', anonKey: 'K' }, async () => ({ ok: false, status, text: async () => body }));
   await assert.rejects(failing(400, '{"message":"invalid_token"}').rpc('f'), (e) => e.code === 'invalid_token' && e.isAuthFailure);
+  await assert.rejects(failing(400, '{"message":"invalid_code"}').rpc('f'), (e) => e.code === 'invalid_code' && !e.isAuthFailure);
   await assert.rejects(failing(400, '{"message":"limit_reached"}').rpc('f'), (e) => e.code === 'limit_reached' && !e.isAuthFailure);
   await assert.rejects(failing(500, 'boom').rpc('f'), (e) => e.code === 'unknown');
   const down = new RemoteApi({ url: 'https://x', anonKey: 'K' }, async () => { throw new TypeError('fetch failed'); });
@@ -370,4 +375,23 @@ test('AuthService: ricorda l\'ultima scheda aperta dall\'admin, per campagna, e 
   // voci orfane (campagna dimenticata) nello storage vengono scartate
   storage.setItem('dnd5e-character-sheet:sessions', JSON.stringify({ sessions: [], active: null, lastOpened: { [ADMIN]: { id: 'x', label: 'y' } } }));
   assert.equal(new AuthService({ rpc }, storage).lastOpened, null);
+});
+
+test('AuthService: codice di creazione — richiesto solo se impostato, e il server decide', async () => {
+  const { rpc, state } = fakeServer();
+  const auth = new AuthService({ rpc }, memoryStorage());
+
+  assert.equal(await auth.creationRequiresCode(), false);
+  assert.equal((await auth.createCampaign('Aperta')).role, 'admin', 'senza codice impostato: come prima');
+
+  state.creationCode = 'la-mia-frase';
+  assert.equal(await auth.creationRequiresCode(), true);
+  await assert.rejects(auth.createCampaign('Intrusa'), (e) => e.code === 'invalid_code');
+  await assert.rejects(auth.createCampaign('Intrusa', 'sbagliato'), (e) => e.code === 'invalid_code');
+  assert.equal(auth.adminSessions.length, 1, 'i tentativi rifiutati non creano sessioni');
+  assert.equal((await auth.createCampaign('Mia', '  la-mia-frase ')).role, 'admin', 'spazi ai bordi ignorati');
+  assert.equal(auth.adminSessions.length, 1, 'stesso token fittizio: una sola voce');
+
+  const unreachable = new AuthService({ rpc: async () => { throw new RemoteError('network'); } }, memoryStorage());
+  assert.equal(await unreachable.creationRequiresCode(), false, 'se non si riesce a chiedere, si prova e decide il server');
 });

@@ -40,3 +40,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/prepare.sql -f supabase/schema.sql -f supabase/tests/security.sql
       - name: Lo schema è rieseguibile (idempotente)
         run: psql -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
+      - name: Aggiornamento da una versione precedente (nessun vecchio overload superstite)
+        run: |
+          psql -v ON_ERROR_STOP=1 -q -c "drop schema public cascade; create schema public;"
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/prepare.sql -f supabase/tests/legacy.sql -f supabase/schema.sql -f supabase/tests/security.sql

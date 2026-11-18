@@ -46,6 +46,30 @@ begin
   perform pg_temp.check(p1.player_token ~ '^PG-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$', 'formato token giocatore');
   perform pg_temp.check(p1.player_token <> p2.player_token, 'token diversi');
 
+  -- ------------------------------------------------ 2b. Codice di creazione
+  perform pg_temp.check(creation_requires_code() = false, 'senza codice impostato: nessun obbligo');
+  perform pg_temp.fails_with($q$select set_creation_code('hack')$q$, 'permission denied for function set_creation_code');
+  perform pg_temp.fails_with($q$select * from settings$q$, 'permission denied for table settings');
+  reset role;                                                   -- come dal SQL Editor di Supabase
+  perform set_creation_code('  la mia frase  ');
+  perform pg_temp.check((select value from settings where key = 'creation_code_hash') <> 'la mia frase', 'il codice non è salvato in chiaro');
+  set local role anon;
+  perform pg_temp.check(creation_requires_code() = true, 'codice impostato: richiesto');
+  perform pg_temp.fails_with($q$select * from create_campaign('Intrusa')$q$, 'invalid_code');
+  perform pg_temp.fails_with($q$select * from create_campaign('Intrusa', '')$q$, 'invalid_code');
+  perform pg_temp.fails_with($q$select * from create_campaign('Intrusa', 'sbagliato')$q$, 'invalid_code');
+  perform pg_temp.fails_with($q$select * from create_campaign('Intrusa', 'LA MIA FRASE')$q$, 'invalid_code');   -- maiuscole contano
+  perform pg_temp.check((select count(*) from pg_proc where proname = 'create_campaign') = 1, 'nessun overload senza codice');
+  select * into x from create_campaign('Con codice', 'la mia frase');
+  perform pg_temp.check(x.admin_token like 'ADM-%', 'con il codice giusto si crea');
+  perform pg_temp.check((select role from resolve_token(x.admin_token)) = 'admin', 'e la campagna funziona');
+  perform pg_temp.fails_with($q$select * from create_campaign('   ', 'la mia frase')$q$, 'invalid_name');
+  reset role;
+  perform set_creation_code(null);                              -- toglierlo riapre la creazione
+  set local role anon;
+  perform pg_temp.check(creation_requires_code() = false, 'codice rimosso');
+  select * into x from create_campaign('Di nuovo aperta');
+
   -- ------------------------------------------------ 3. Chi sono
   perform pg_temp.check((select role from resolve_token(a.admin_token)) = 'admin', 'resolve admin');
   perform pg_temp.check((select character_id from resolve_token(p1.player_token)) = p1.id, 'resolve player → la sua scheda');
