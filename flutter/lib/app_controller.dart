@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'data/catalog.dart';
 import 'i18n.dart';
 import 'model/character_model.dart';
+import 'platform/legacy.dart';
 import 'sync/character_sync.dart';
 import 'sync/diff.dart';
 import 'services/storage.dart';
@@ -44,6 +45,8 @@ class AppController extends ChangeNotifier {
     setUiDictionary(Catalog.instance.uiEn);
 
     final storage = await Storage.open();
+    // Chi arriva dalla versione web JS (stesso indirizzo) ritrova scheda, lingua, manuali e accesso.
+    await storage.adoptRaw(readLegacyLocalStorage(storage.key));
     final saved = storage.loadString('lang');
     final device = ui.PlatformDispatcher.instance.locales.map((l) => l.languageCode);
     final language = isSupportedLang(saved) ? saved! : detectLang(device);

@@ -2,6 +2,7 @@
 import 'package:dnd5e_sheet/app_controller.dart';
 import 'package:dnd5e_sheet/auth/account_service.dart';
 import 'package:dnd5e_sheet/auth/auth_service.dart';
+import 'package:dnd5e_sheet/services/storage.dart';
 import 'package:dnd5e_sheet/session_controller.dart';
 import 'package:dnd5e_sheet/i18n.dart';
 import 'package:dnd5e_sheet/main.dart';
@@ -115,5 +116,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(app.isRemote, isFalse);
     expect(find.text('Accedi / Campagna'), findsOneWidget);
+  });
+
+  test('adoptRaw porta nello storage le voci della versione JS senza sovrascrivere', () async {
+    SharedPreferences.setMockInitialValues({'dnd5e-character-sheet:lang': '"en"'});
+    final storage = await Storage.open();
+    final copied = await storage.adoptRaw({
+      'dnd5e-character-sheet': '{"info":{"name":"Vecchia"}}',
+      'dnd5e-character-sheet:lang': '"it"',
+      'dnd5e-character-sheet:rotto': '{non json',
+    });
+    expect(copied, 1);
+    expect((storage.loadCharacter() as Map)['info']['name'], 'Vecchia');
+    expect(storage.loadString('lang'), 'en');
   });
 }
