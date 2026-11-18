@@ -712,3 +712,75 @@ test('gli elementi memorizzati ma non validi (oltre quota o con prerequisito per
   assert.equal(warlock.toggleChoice('invocations', 'lifedrinker'), true);
   assert.deepEqual(warlock.get('info.classChoices.invocations'), []);
 });
+
+// ------------------------------------------------------------------ fase D: copertura trasversale
+
+/** Ogni classe e sottoclasse, al 20°: riempie tutte le scelte consentite e verifica coerenza e lingue. */
+test('esaustivo: ogni classe e sottoclasse, tutte le scelte al massimo, in italiano e inglese', () => {
+  for (const lang of ['it', 'en']) {
+    setLang(lang);
+    for (const [classId, defs] of Object.entries(CLASS_CHOICES)) {
+      const sub = defs.find((d) => d.subclass);
+      for (const option of sub.options) {
+        const model = make({ classId, level: 20 }, { skills: Object.fromEntries(SKILL_IDS.map((id) => [id, { proficient: true }])) });
+        model.set('info.classChoices.subclass', option.value);
+        // più passate: una scelta può comparire solo dopo un'altra
+        for (let pass = 0; pass < 2; pass += 1) {
+          for (const key of model.getDerived().classChoices.map((x) => x.key)) {
+            const g = model.getDerived().classChoices.find((x) => x.key === key); // aggiornato: le opzioni dipendono dalle altre scelte
+            if (!g) continue;
+            const def = defs.find((d) => d.key === g.key);
+            if (g.type === 'single') {
+              const first = g.options[0]?.value;
+              if (first && g.key !== 'subclass') {
+                model.set(`info.classChoices.${g.key}`, first);
+                assert.equal(model.get(`info.classChoices.${g.key}`), first, `${classId}.${option.value}.${g.key}`);
+              }
+            } else if (g.type === 'text') {
+              model.set(`info.classChoices.${g.key}`, 'Testo');
+            } else {
+              for (const o of g.options) if (!o.disabled && !o.selected) model.toggleChoice(g.key, o.value);
+              const after = model.getDerived().classChoices.find((x) => x.key === g.key);
+              assert.ok(after.selectedCount <= after.count, `${classId}.${g.key}: oltre quota`);
+              assert.equal(new Set(model.get(`info.classChoices.${g.key}`)).size, model.get(`info.classChoices.${g.key}`).length, 'duplicati');
+              assert.ok(def.type !== 'multi' || after.selectedCount > 0, `${classId}.${option.value}.${g.key}: nessuna scelta possibile`);
+            }
+          }
+        }
+        const derived = model.getDerived();
+        const text = JSON.stringify([derived.features, derived.classChoices, derived.resources]);
+        assert.ok(!/undefined|NaN|\[object/.test(text), `${lang} ${classId}.${option.value}: valore indefinito nei derivati`);
+        // salvataggio e ricarica: lo stato è stabile
+        const doc = JSON.parse(JSON.stringify(model.toJSON()));
+        assert.deepEqual(normalizeCharacter(doc), doc, `${classId}.${option.value}: normalizzazione instabile`);
+      }
+    }
+  }
+});
+
+test('prestazioni: il calcolo dei derivati con tutte le scelte resta nell\'ordine dei millisecondi', () => {
+  const model = make({ classId: 'warlock', level: 20 });
+  model.set('info.classChoices.pactBoon', 'blade');
+  for (const o of group(model, 'invocations').options) model.toggleChoice('invocations', o.value);
+  const start = performance.now();
+  for (let i = 0; i < 200; i += 1) model.getDerived();
+  const perCall = (performance.now() - start) / 200;
+  assert.ok(perCall < 5, `${perCall.toFixed(2)} ms per calcolo`);
+});
+
+test('JSON esportati con versioni e forme diverse si caricano senza errori', () => {
+  const samples = [
+    null, undefined, 'testo', 42, [], {},
+    { version: 1 },
+    { version: 1, info: { classId: 'wizard', level: 20 } },
+    { version: 1, info: { classId: 'wizard', classChoices: null } },
+    { version: 99, info: { classId: 'cleric', classChoices: { subclass: ['war'], domainSkills: { 0: 'arcana' } } } },
+    { info: { classId: 'ranger', classChoices: { favoredEnemy: 'beasts', unknownKey: 'x' } } },
+  ];
+  for (const sample of samples) {
+    const model = new CharacterModel();
+    assert.doesNotThrow(() => model.load(sample));
+    assert.doesNotThrow(() => model.getDerived());
+    assert.deepEqual(Object.keys(model.get('info.classChoices')).sort(), Object.keys(defaultChoiceValues()).sort(), 'nessuna chiave in più o in meno');
+  }
+});
