@@ -233,6 +233,12 @@ export function deriveStats(state) {
       };
     }),
     hasWeapons: state.weapons.length > 0,
+    // Riepilogo in alto: il TpC più alto tra le armi in tabella (assente se non ce ne sono).
+    topAttack: state.weapons.length
+      ? Math.max(...state.weapons.map((w) => attackBonus({
+        abilityMod: mods[w.ability], profBonus, proficient: w.proficient, magicBonus: w.magicBonus,
+      })))
+      : null,
 
     spellcasting: {
       isCaster,

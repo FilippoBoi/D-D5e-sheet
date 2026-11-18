@@ -25,6 +25,7 @@ export const UI_EN = {
   'PF': 'HP',
   'Iniz.': 'Init.',
   'Comp.': 'Prof.',
+  'TpC più alto tra le armi in tabella': 'Highest attack bonus among your weapons',
   'CD': 'DC',
 
   // 1. Combattimento
