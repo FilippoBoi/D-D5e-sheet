@@ -11,6 +11,7 @@ import {
   MAX_AC_ITEMS, MAX_WEAPONS, classSaveProficiencies, createAcItem, createDefaultCharacter, createWeapon,
   normalizeCharacter, sanitizeValue,
 } from './characterSchema.js';
+import { CORE_SOURCE, normalizeSources } from '../data/sources.js';
 import { deriveStats } from './deriveStats.js';
 import { feetToMeters, getRace } from '../data/races.js';
 import { defaultChoiceValues, getChoiceDefs, isListType } from '../data/classChoices/index.js';
@@ -20,10 +21,31 @@ export class CharacterModel extends EventEmitter {
   /** @type {ReturnType<typeof createDefaultCharacter>} */
   #state;
 
-  /** @param {unknown} [initialData] dati salvati in precedenza (opzionali) */
-  constructor(initialData = null) {
+  /** Manuali attivi: preferenza dell'interfaccia, fuori dalla scheda (non viaggia con il personaggio). */
+  #sources = new Set([CORE_SOURCE]);
+
+  /**
+   * @param {unknown} [initialData] dati salvati in precedenza (opzionali)
+   * @param {unknown} [sources] elenco dei manuali attivi (opzionale)
+   */
+  constructor(initialData = null, sources = null) {
     super();
     this.#state = normalizeCharacter(initialData);
+    this.#sources = normalizeSources(sources);
+  }
+
+  /** @returns {Set<string>} copia dei manuali attivi */
+  getSources() { return new Set(this.#sources); }
+
+  /** Attiva o disattiva un manuale (il PHB resta sempre attivo). @returns {boolean} true se è cambiato */
+  toggleSource(id) {
+    const next = new Set(this.#sources);
+    if (!next.delete(id)) next.add(id);
+    const valid = normalizeSources([...next]);
+    if (valid.size === this.#sources.size && [...valid].every((x) => this.#sources.has(x))) return false;
+    this.#sources = valid;
+    this.#emitChange('sources');
+    return true;
   }
 
   // ---------------------------------------------------------------- Letture
@@ -35,7 +57,7 @@ export class CharacterModel extends EventEmitter {
 
   /** Valori calcolati (modificatori, CA, CD...). */
   getDerived() {
-    return deriveStats(this.#state);
+    return deriveStats(this.#state, { sources: this.#sources });
   }
 
   /** @param {string} path */

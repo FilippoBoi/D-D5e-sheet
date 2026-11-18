@@ -51,7 +51,8 @@ export class CharacterController {
     this.#view.onImport((text) => this.#importJson(text));
     this.#view.onPanelToggle((state) => this.#repository.saveUiState(state));
 
-    this.#model.on('change', () => {
+    this.#model.on('change', ({ path }) => {
+      if (path === 'sources') this.#repository.saveSources([...this.#model.getSources()]);
       this.#render();
       this.#changeListeners.forEach((listener) => listener());
       this.#scheduleSave();
@@ -125,6 +126,7 @@ export class CharacterController {
   #handleAction(action, data) {
     const handlers = {
       'add-weapon': () => this.#model.addWeapon(),
+      'toggle-source': () => this.#model.toggleSource(data.sourceId),
       'toggle-choice': () => this.#model.toggleChoice(data.choiceKey, data.choiceValue),
       'add-ac-item': () => this.#model.addAcItem(),
       'remove-ac-item': () => this.#model.removeAcItem(data.id),

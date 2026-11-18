@@ -149,6 +149,9 @@ export function resolveClassChoices({ classId, level, choices, isProficient }) {
   return { groups, subclass, effects, grantedSkills: granted, expertiseSkills: expertise, valueOf };
 }
 
+/** "Samurai [XGE]": la sigla del manuale distingue le opzioni che non sono del PHB. */
+const sourceTagged = (label, source) => (source && source !== 'PHB' ? `${label} [${source}]` : label);
+
 /** Nome leggibile di un valore scelto (opzione, abilità o voce extra). */
 export function choiceValueLabel(def, value) {
   const option = def.options.find((o) => o.value === value);
@@ -219,8 +222,10 @@ function requirementText(option, defs) {
  * @param {ReturnType<typeof resolveClassChoices>} resolved
  * @param {number} level
  * @param {(skillId: string) => boolean} isProficient competenza di base
+ * @param {string} classId
+ * @param {Set<string> | null} [enabledSources] manuali attivi: le opzioni degli altri sono nascoste, tranne quella già scelta
  */
-export function describeChoiceGroups(resolved, level, isProficient, classId) {
+export function describeChoiceGroups(resolved, level, isProficient, classId, enabledSources = null) {
   const defs = getChoiceDefs(classId);
   const reasonText = {
     prereq: pick('prerequisito non soddisfatto', 'prerequisite not met'),
@@ -239,7 +244,10 @@ export function describeChoiceGroups(resolved, level, isProficient, classId) {
       const taken = def.differsFrom ? resolved.valueOf(def.differsFrom) : '';
       return {
         ...base, searchable: false,
-        options: def.options.filter((o) => !taken || o.value !== taken).map((o) => ({ value: o.value, label: loc(o, 'label') })),
+        options: def.options
+          .filter((o) => (!taken || o.value !== taken)
+            && (!enabledSources || o.value === g.value || enabledSources.has(o.source ?? 'PHB')))
+          .map((o) => ({ value: o.value, label: sourceTagged(loc(o, 'label'), o.source) })),
       };
     }
     if (def.type === 'text') return { ...base, options: [], searchable: false };

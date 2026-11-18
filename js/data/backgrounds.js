@@ -1,3 +1,5 @@
+import { EXTRA_BACKGROUNDS } from './generated/backgrounds.js';
+
 /**
  * I 13 background del Manuale del Giocatore (2014), dati da 5e.tools (sorgente PHB).
  * Le varianti (Spia, Gladiatore, Cavaliere, Pirata…) usano le stesse competenze e restano
@@ -6,7 +8,7 @@
  * - skills: competenze in abilità concesse automaticamente (id di data/skills.js)
  * - tools / languages / equipment / feature: testo di riepilogo mostrato nella scheda
  */
-export const BACKGROUNDS = Object.freeze({
+const CORE_BACKGROUNDS = {
   acolyte: {
     id: 'acolyte', name: 'Accolito', nameEn: 'Acolyte', skills: ['insight', 'religion'],
     tools: '', toolsEn: '',
@@ -111,7 +113,12 @@ export const BACKGROUNDS = Object.freeze({
     equipmentEn: 'Small knife, map of the city you grew up in, pet mouse, token to remember your parents, common clothes, belt pouch with 10 gp',
     feature: 'Segreti della città', featureEn: 'City Secrets',
   },
-});
+};
+
+/** Background degli altri manuali (generati da 5e.tools); `source` = sigla del manuale. */
+export const BACKGROUNDS = Object.freeze(Object.fromEntries(
+  [...Object.values(CORE_BACKGROUNDS), ...EXTRA_BACKGROUNDS].map((bg) => [bg.id, Object.freeze({ source: 'PHB', ...bg })]),
+));
 
 export const BACKGROUND_LIST = Object.freeze(Object.values(BACKGROUNDS));
 export const BACKGROUND_IDS = Object.freeze(Object.keys(BACKGROUNDS));

@@ -7,6 +7,7 @@ import { ARMORS, ARMOR_CATEGORIES } from './data/armors.js';
 import { CLASS_LIST } from './data/classes.js';
 import { RACE_LIST } from './data/races.js';
 import { BACKGROUND_LIST } from './data/backgrounds.js';
+import { SOURCES } from './data/sources.js';
 import { SKILLS } from './data/skills.js';
 import { CharacterModel } from './model/CharacterModel.js';
 import { LocalStorageRepository } from './model/LocalStorageRepository.js';
@@ -20,7 +21,7 @@ import { RemoteApi } from './net/RemoteApi.js';
 import { REMOTE_CONFIG, isRemoteConfigured } from './config.js';
 
 const repository = new LocalStorageRepository('dnd5e-character-sheet');
-const model = new CharacterModel(repository.load());
+const model = new CharacterModel(repository.load(), repository.loadSources());
 const view = new CharacterView(document);
 
 const controller = new CharacterController({
@@ -36,6 +37,7 @@ const controller = new CharacterController({
     races: RACE_LIST,
     backgrounds: BACKGROUND_LIST,
     alignments: ALIGNMENTS,
+    sources: SOURCES,
   },
 });
 

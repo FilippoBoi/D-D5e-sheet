@@ -19,6 +19,7 @@ import { el, readInputValue, writeInputValue } from './dom.js';
 import { ALIGNMENTS_EN } from '../data/abilities.js';
 import { ARMOR_CATEGORIES_EN } from '../data/armors.js';
 import { getLang, loc, pick } from '../i18n/i18n.js';
+import { GROUP_LABELS } from '../data/sources.js';
 import { translateString, translateTree } from '../i18n/domTranslator.js';
 
 /** 1 → 1st, 2 → 2nd, 3 → 3rd, 4 → 4th... (solo inglese). */
@@ -70,8 +71,8 @@ export class CharacterView {
    * @param {Array<{id:string,name:string}>} catalogs.classes
    * @param {string[]} catalogs.alignments
    */
-  build({ abilities, skills, armors, armorCategories, classes, races, backgrounds, alignments }) {
-    this.#catalogs = { abilities, skills, armors, armorCategories, classes, races, backgrounds, alignments };
+  build({ abilities, skills, armors, armorCategories, classes, races, backgrounds, alignments, sources = [] }) {
+    this.#catalogs = { abilities, skills, armors, armorCategories, classes, races, backgrounds, alignments, sources };
     const shortOf = Object.fromEntries(abilities.map((a) => [a.id, loc(a, 'short')]));
     // In inglese le abilità vanno riordinate alfabeticamente (l'elenco di base è in ordine italiano).
     const sortedSkills = getLang() === 'it'
@@ -80,14 +81,6 @@ export class CharacterView {
     const categoryLabels = getLang() === 'it' ? armorCategories : ARMOR_CATEGORIES_EN;
     const alignmentLabel = (a) => (getLang() === 'it' ? a : (ALIGNMENTS_EN[a] ?? a));
 
-    this.#q('[data-options="races"]').replaceChildren(
-      el('option', { value: '', text: '—' }),
-      ...races.map((r) => el('option', { value: r.id, text: loc(r) })),
-    );
-    this.#q('[data-options="backgrounds"]').replaceChildren(
-      el('option', { value: '', text: pick('Personalizzato', 'Custom') }),
-      ...backgrounds.map((b) => el('option', { value: b.id, text: loc(b) })),
-    );
     this.#q('[data-options="classes"]').replaceChildren(
       ...classes.map((c) => el('option', { value: c.id, text: loc(c) })),
     );
@@ -184,6 +177,7 @@ export class CharacterView {
     this.#renderSpellSlots(derived.spellcasting.slots);
     this.#renderFeatures(derived.features);
     this.#renderResources(derived.resources);
+    this.#renderOrigins(state, derived.sources);
     this.#renderRaceChoices(derived.race?.choices ?? []);
     this.#renderClassSkills(derived.classInfo.skillSlots);
     this.#renderClassChoices(derived.classChoices);
@@ -290,6 +284,52 @@ export class CharacterView {
       el('span', { class: 'stat__label', text: r.label }),
       el('span', { class: 'stat__value', text: r.value }),
     ])));
+  }
+
+  /**
+   * Manuali (caselle) e menu di razza e background, raggruppati per manuale.
+   * Si vedono solo i manuali attivi, più l'elemento già scelto anche se il suo manuale è spento.
+   */
+  #renderOrigins(state, enabledList) {
+    const { sources = [], races, backgrounds } = this.#catalogs;
+    const enabled = new Set(enabledList);
+    const sourceKey = [...enabled].sort().join(',');
+
+    if (this.#shouldRebuild('sources', `${sourceKey}`)) {
+      const rows = [];
+      for (const [group, [labelIt, labelEn]] of Object.entries(GROUP_LABELS)) {
+        const items = sources.filter((x) => x.group === group);
+        if (!items.length) continue;
+        rows.push(el('p', { class: 'sources__group', text: pick(labelIt, labelEn) }));
+        for (const x of items) {
+          const locked = x.id === 'PHB';
+          rows.push(el('label', { class: 'sources__item' }, [
+            el('input', { type: 'checkbox', checked: enabled.has(x.id), disabled: locked, dataset: { action: 'toggle-source', sourceId: x.id } }),
+            el('span', { text: loc(x) }), el('small', { text: x.id }),
+          ]));
+        }
+      }
+      this.#q('[data-list="sources"]').replaceChildren(...rows);
+    }
+
+    const fill = (name, items, current, first) => {
+      const key = `${sourceKey}|${current}`;
+      if (!this.#shouldRebuild(name, key)) return;
+      const visible = items.filter((x) => enabled.has(x.source ?? 'PHB') || x.id === current);
+      const byId = (id) => visible.filter((x) => (x.source ?? 'PHB') === id);
+      const options = [first];
+      for (const src of sources) {
+        const list = byId(src.id);
+        if (!list.length) continue;
+        const opts = list.map((x) => el('option', { value: x.id, text: loc(x) }));
+        if (src.id === 'PHB' && enabled.size === 1) options.push(...opts);
+        else options.push(el('optgroup', { label: loc(src) }, opts));
+      }
+      this.#q(`[data-options="${name}"]`).replaceChildren(...options);
+      this.#qa(`[data-options="${name}"]`).forEach((select) => { select.value = current; });
+    };
+    fill('races', races, state.info.raceId, el('option', { value: '', text: '—' }));
+    fill('backgrounds', backgrounds, state.info.backgroundId, el('option', { value: '', text: pick('Personalizzato', 'Custom') }));
   }
 
   /** Menu a tendina per le scelte della razza (aumenti, abilità, opzione singola). */

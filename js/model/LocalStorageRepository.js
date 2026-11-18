@@ -64,6 +64,16 @@ export class LocalStorageRepository {
     return this.#write(`${this.#key}:lang`, code);
   }
 
+  /** Manuali attivi (preferenza dell'interfaccia). */
+  loadSources() {
+    const value = this.#read(`${this.#key}:sources`);
+    return Array.isArray(value) ? value : null;
+  }
+
+  saveSources(ids) {
+    return this.#write(`${this.#key}:sources`, ids);
+  }
+
   #read(key) {
     try {
       const raw = this.#storage?.getItem(key);

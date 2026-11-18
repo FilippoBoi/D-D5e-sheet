@@ -533,3 +533,14 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   background: var(--card); border: 1px solid var(--gold); border-radius: 999px;
 }
 .choice__chip:hover { background: var(--card-raised); }
+
+/* Manuali attivi */
+.sources { margin-bottom: 0.9rem; border: 1px solid var(--border, currentColor); border-radius: 8px; padding: 0.4rem 0.7rem; }
+.sources > summary { cursor: pointer; font-weight: 600; }
+.sources__hint { margin: 0.5rem 0; font-size: 0.85rem; color: var(--text-muted); }
+.sources__list { display: grid; gap: 0.25rem 1rem; grid-template-columns: 1fr; }
+@media (min-width: 600px) { .sources__list { grid-template-columns: repeat(2, 1fr); } }
+.sources__group { margin: 0.5rem 0 0.1rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); grid-column: 1 / -1; }
+.sources__item { display: flex; gap: 0.5rem; align-items: center; min-height: 2rem; font-size: 0.9rem; }
+.sources__item small { color: var(--text-muted); }
+.sources__item input { flex: none; }

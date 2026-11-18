@@ -58,7 +58,7 @@ function hpLevel(percent) {
 }
 
 /** @param {ReturnType<import('./characterSchema.js').createDefaultCharacter>} state */
-export function deriveStats(state) {
+export function deriveStats(state, { sources = null } = {}) {
   const cls = getClass(state.info.classId);
   const { level } = state.info;
   const profBonus = proficiencyBonus(level);
@@ -167,9 +167,10 @@ export function deriveStats(state) {
     options: skillOptions(classStart.skillChoice.from),
   }));
 
-  const classChoiceGroups = describeChoiceGroups(resolved, level, baseProficient, cls.id);
+  const classChoiceGroups = describeChoiceGroups(resolved, level, baseProficient, cls.id, sources);
 
   return {
+    sources: [...(sources ?? [])],
     race: race ? {
       name: loc(race),
       languages: loc(race, 'languages'),
