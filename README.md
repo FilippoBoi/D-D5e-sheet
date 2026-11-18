@@ -1,3 +1,5 @@
+🇮🇹 Italiano · **[🇬🇧 English](README.en.md)**
+
 # Scheda Personaggio D&D 5E
 
 Scheda personaggio interattiva per **Dungeons & Dragons 5ª Edizione**, scritta in HTML5, CSS3 e JavaScript vanilla, senza framework né dipendenze runtime. Calcola in automatico modificatori, CA, tiri salvezza, abilità, attacchi, CD degli incantesimi e privilegi di classe, e salva i dati nel browser.
