@@ -22,6 +22,7 @@ export class CharacterController {
   /** Sincronizzazione con la scheda condivisa; null = si lavora sulla scheda locale. */
   #remote = null;
   #languageListeners = [];
+  #changeListeners = [];
 
   /**
    * @param {object} deps
@@ -52,6 +53,7 @@ export class CharacterController {
 
     this.#model.on('change', () => {
       this.#render();
+      this.#changeListeners.forEach((listener) => listener());
       this.#scheduleSave();
     });
 
@@ -69,6 +71,7 @@ export class CharacterController {
   get isRemote() { return this.#remote !== null; }
 
   /** @param {() => void} listener chiamato dopo ogni cambio lingua */
+  onChange(listener) { this.#changeListeners.push(listener); }
   onLanguageChange(listener) { this.#languageListeners.push(listener); }
 
   /** Scheda locale salvata, se esiste (serve per proporne il caricamento in campagna). */

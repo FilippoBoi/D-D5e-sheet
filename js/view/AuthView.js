@@ -47,6 +47,7 @@ export class AuthView {
    *   session: {role: string, campaignName: string} | null,
    *   email: string,
    *   sheetLabel: string,
+   *   character: {name?: string, player?: string} | null,
    *   syncState: 'online'|'offline'|'revoked'|null,  (null = scheda locale, nulla da sincronizzare)
    *   canManage: boolean,
    * }} vm
@@ -70,10 +71,15 @@ export class AuthView {
       revoked: pick('accesso revocato', 'access revoked'),
     }[vm.syncState];
 
+    // Giocatore: "Campagna: {personaggio} - {giocatore}" (le parti vuote vengono omesse).
+    let campaign = vm.session.campaignName || pick('nessuna campagna', 'no campaign');
+    const who = [vm.character?.name?.trim(), vm.character?.player?.trim()].filter(Boolean).join(' - ');
+    if (who) campaign += `: ${who}`;
+
     this.#bar.append(
       el('span', { class: 'session-bar__who' }, [
         el('span', { class: 'badge', text: role }),
-        el('strong', { text: vm.session.campaignName || pick('nessuna campagna', 'no campaign'), title: vm.email ?? '' }),
+        el('strong', { text: campaign, title: vm.email ?? '' }),
       ]),
       el('span', { class: 'session-bar__sheet', text: `${pick('Scheda', 'Sheet')}: ${vm.sheetLabel}` }),
       stateText && el('span', { class: `session-bar__state session-bar__state--${vm.syncState}`, role: 'status', text: `● ${stateText}` }),

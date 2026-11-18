@@ -50,6 +50,7 @@ export class SessionController {
 
   async init() {
     this.#characters.onLanguageChange(() => this.#refresh());
+    this.#characters.onChange(() => { if (this.#auth.active?.role === 'player') this.#refresh(); });
 
     // Ritorno dal link dell'email: la sessione del Master è nel frammento dell'indirizzo (#access_token=…).
     const comingBack = this.#auth.completeSignInFromUrl(this.#location.hash);
@@ -199,6 +200,7 @@ export class SessionController {
       email: this.#auth.email,
       sheetLabel: this.#sync ? this.#sheetLabel : pick('locale (solo su questo dispositivo)', 'local (this device only)'),
       syncState: this.#sync ? this.#syncState : null,
+      character: session?.role === 'player' && this.#sync ? this.#characters.currentSnapshot().info : null,
       canManage: session?.role === 'admin',
     }, {
       onLogin: () => this.#showLogin(),
