@@ -16,6 +16,7 @@ import { getClassResources } from '../data/classResources.js';
 import { SKILLS } from '../data/skills.js';
 import { clamp, formatModifier } from '../core/utils.js';
 import { loc, pick } from '../i18n/i18n.js';
+import { choiceFeatureRows, describeChoiceGroups, resolveClassChoices } from './classChoices.js';
 import {
   abilityModifier, attackBonus, computeArmorClass, proficiencyBonus, skillBonus,
   spellAttackBonus, spellSaveDC, spellSlotsFor, suggestedMaxHp,
@@ -37,10 +38,12 @@ const skillOptions = (ids = null) => SKILLS
 function armorFormula(armor, unarmoredDefense) {
   const dex = loc(getAbility('dex'), 'short');
   switch (armor.category) {
-    case 'none':
-      return unarmoredDefense
-        ? `10 + ${dex} + ${loc(getAbility(unarmoredDefense.ability), 'short')}`
-        : `10 + ${dex}`;
+    case 'none': {
+      const base = unarmoredDefense?.base ?? 10;
+      return unarmoredDefense?.ability
+        ? `${base} + ${dex} + ${loc(getAbility(unarmoredDefense.ability), 'short')}`
+        : `${base} + ${dex}`;
+    }
     case 'light': return `${armor.baseAC} + ${dex}`;
     case 'medium': return `${armor.baseAC} + ${dex} (max +${MEDIUM_ARMOR_MAX_DEX})`;
     default: return `${armor.baseAC} (${pick('fissa', 'fixed')})`;
@@ -77,7 +80,13 @@ export function deriveStats(state) {
     .filter((id) => classStart.skillChoice.from.includes(id))
     .slice(0, classStart.skillChoice.count);
   const classSkillSet = new Set(classSkillIds);
-  const skillProficient = (id) => state.skills[id].proficient || racialSkills.has(id) || classSkillSet.has(id);
+  const baseProficient = (id) => state.skills[id].proficient || racialSkills.has(id) || classSkillSet.has(id);
+
+  // Scelte di classe: abilità concesse, Maestria ed effetti calcolabili (CA, PF).
+  const resolved = resolveClassChoices({
+    classId: cls.id, level, choices: state.info.classChoices, isProficient: baseProficient,
+  });
+  const skillProficient = (id) => baseProficient(id) || resolved.grantedSkills.has(id);
 
   // Punteggio finale = valore inserito + bonus razziali (fissi e scelti).
   const racialBonus = (id) => (race?.abilityBonuses[id] ?? 0)
@@ -93,19 +102,20 @@ export function deriveStats(state) {
     abilityMod: mods[s.ability],
     profBonus,
     proficient: skillProficient(s.id),
-    expertise: state.skills[s.id].expertise,
+    expertise: state.skills[s.id].expertise || resolved.expertiseSkills.has(s.id),
     jackOfAllTrades,
   })]));
 
   // --- Armatura e CA ---
   const armor = getArmor(state.equipment.armorId);
-  const unarmoredDefense = cls.unarmoredDefense ?? null;
+  const unarmoredDefense = cls.unarmoredDefense ?? resolved.effects.unarmoredDefense;
   const ac = computeArmorClass({
     armor,
     hasShield: state.equipment.shield,
     magicBonus: state.equipment.magicBonus,
     mods,
     unarmoredDefense,
+    armorBonuses: resolved.effects.acWithArmor,
     extraItems: state.equipment.acItems.map((item) => ({ label: item.name || pick('Oggetto', 'Item'), value: item.bonus })),
   });
 
@@ -124,7 +134,7 @@ export function deriveStats(state) {
   const { hpMax, hpCurrent } = state.combat;
   const hpPercent = clamp(Math.round((hpCurrent / hpMax) * 100), 0, 100);
 
-  const features = getClassFeatures(cls.id, level);
+  const features = getClassFeatures(cls.id, level, choiceFeatureRows(resolved, level));
   const resources = getClassResources(cls.id, level, mods);
 
   const skillName = (id) => (SKILLS.find((s) => s.id === id) ? loc(SKILLS.find((s) => s.id === id)) : id);
@@ -154,6 +164,8 @@ export function deriveStats(state) {
     options: skillOptions(classStart.skillChoice.from),
   }));
 
+  const classChoiceGroups = describeChoiceGroups(resolved, level, baseProficient);
+
   return {
     race: race ? {
       name: loc(race),
@@ -173,6 +185,9 @@ export function deriveStats(state) {
       skillChoice: `${pick('Scegli', 'Choose')} ${classStart.skillChoice.count}: ${classStart.skillChoice.from.map(skillName).join(', ')}`,
       skillSlots: classSkillSlots,
     },
+    classChoices: classChoiceGroups,
+    hasClassChoices: classChoiceGroups.length > 0,
+    expertiseFromChoices: [...resolved.expertiseSkills],
     hasAcItems: state.equipment.acItems.length > 0,
     className: loc(cls),
     featuresTitle: pick(`Privilegi di ${loc(cls)}`, `${loc(cls)} features`),
@@ -221,7 +236,7 @@ export function deriveStats(state) {
     hasResources: resources.length > 0,
 
     hp: {
-      suggested: suggestedMaxHp(cls.hitDie, level, mods.con),
+      suggested: suggestedMaxHp(cls.hitDie, level, mods.con, resolved.effects.hpPerLevel),
       percent: hpPercent,
       level: hpLevel(hpPercent),
       isDown: hpCurrent <= 0,

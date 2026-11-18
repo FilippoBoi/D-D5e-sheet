@@ -10,6 +10,7 @@ import { ARMORS } from '../js/data/armors.js';
 import { CLASS_LIST, CLASS_STARTING } from '../js/data/classes.js';
 import { RACE_LIST } from '../js/data/races.js';
 import { CharacterModel } from '../js/model/CharacterModel.js';
+import { CLASS_CHOICES } from '../js/data/classChoices/index.js';
 
 afterEach(() => setLang('it'));
 
@@ -87,4 +88,39 @@ test('i valori derivati sono tradotti, lo stato salvato no', () => {
   assert.equal(english.classInfo.armor, 'None');
   assert.equal(model.get('info.alignment'), 'Legale Buono'); // valore salvato invariato
   assert.equal(english.ac, italian.ac); // i numeri non dipendono dalla lingua
+});
+
+test('scelte di classe: ogni classe, scelta e opzione ha etichetta, descrizione e privilegi in inglese', () => {
+  for (const [classId, defs] of Object.entries(CLASS_CHOICES)) {
+    for (const def of defs) {
+      const at = `${classId}.${def.key}`;
+      assert.ok(def.label && def.labelEn, `${at}: etichetta`);
+      if (def.hint) assert.ok(def.hintEn, `${at}: hint`);
+      for (const e of def.extra ?? []) assert.ok(e.label && e.labelEn, `${at}.${e.value}`);
+      for (const o of def.options) {
+        assert.ok(o.label && o.labelEn, `${at}.${o.value}: etichetta`);
+        if (o.description) assert.ok(o.descriptionEn, `${at}.${o.value}: descrizione`);
+        for (const f of o.features) {
+          assert.ok(f.name && f.nameEn && f.description && f.descriptionEn, `${at}.${o.value}@${f.level}: privilegio`);
+        }
+      }
+    }
+  }
+});
+
+test('scelte di classe: gruppi e privilegi cambiano lingua, i valori salvati no', () => {
+  const model = new CharacterModel({ info: { classId: 'cleric', level: 8 } });
+  model.set('info.classChoices.subclass', 'light');
+  const it = model.getDerived();
+  assert.equal(it.classChoices[0].label, 'Dominio Divino');
+  assert.equal(it.classChoices[0].options[0].label, 'Conoscenza');
+  assert.ok(it.features.some((f) => f.name === 'Lampo Difensivo'));
+
+  setLang('en');
+  const en = model.getDerived();
+  assert.equal(en.classChoices[0].label, 'Divine Domain');
+  assert.equal(en.classChoices[0].options[0].label, 'Knowledge');
+  assert.ok(en.features.some((f) => f.name === 'Warding Flare'));
+  assert.equal(en.features.find((f) => f.name === 'Warding Flare').tag, 'Divine Domain: Light');
+  assert.equal(model.get('info.classChoices.subclass'), 'light');
 });

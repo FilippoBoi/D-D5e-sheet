@@ -9,7 +9,9 @@ import { ABILITY_IDS } from '../data/abilities.js';
 import { ARMOR_IDS } from '../data/armors.js';
 import { CLASS_IDS, DEFAULT_CLASS_ID, getClass } from '../data/classes.js';
 import { NO_RACE_ID, RACE_IDS } from '../data/races.js';
+import { allowedValuesForKey, defaultChoiceValues, MAX_CHOICE_TEXT } from '../data/classChoices/index.js';
 import { SKILLS } from '../data/skills.js';
+import { normalizeClassChoices } from './classChoices.js';
 const SKILL_IDS = SKILLS.map((s) => s.id);
 import { clamp, clampInt, isPlainObject } from '../core/utils.js';
 
@@ -64,6 +66,7 @@ export function createDefaultCharacter() {
       name: '', player: '', raceId: NO_RACE_ID, background: '', alignment: '',
       classId: DEFAULT_CLASS_ID, level: 1,
       raceChoices: { ability1: '', ability2: '', skill1: '', skill2: '', option: '' },
+      classChoices: defaultChoiceValues(),
     },
     classSkills: { skill1: '', skill2: '', skill3: '', skill4: '' },
     abilities: Object.fromEntries(ABILITY_IDS.map((id) => [id, 10])),
@@ -98,6 +101,11 @@ const RULES = [
   [/^info\.raceChoices\.ability\d$/, (v) => (v === '' || ABILITY_IDS.includes(v) ? v : undefined)],
   [/^(info\.raceChoices|classSkills)\.skill\d$/, (v) => (v === '' || SKILL_IDS.includes(v) ? v : undefined)],
   [/^info\.raceChoices\.option$/, (v) => v.slice(0, 40)],
+  // Scelte di classe singole/di testo: solo valori noti (la coerenza con la classe attuale la verifica il Model).
+  [/^info\.classChoices\.(\w+)$/, (v, path) => {
+    const allowed = allowedValuesForKey(path.split('.').pop());
+    return allowed.size === 0 ? v.slice(0, MAX_CHOICE_TEXT) : (v === '' || allowed.has(v) ? v : undefined);
+  }],
   [/^equipment\.acItems\.\d+\.name$/, (v) => v.slice(0, 80)],
   [/^equipment\.acItems\.\d+\.bonus$/, (v) => clampInt(v, -5, 10)],
   [/^abilities\.\w+$/, (v) => clampInt(v, 1, 30)],
@@ -142,7 +150,7 @@ export function sanitizeValue(path, raw, current) {
   if (value === undefined) return current;
   const rule = RULES.find(([pattern]) => pattern.test(path));
   if (!rule) return value;
-  const result = rule[1](value);
+  const result = rule[1](value, path);
   return result === undefined ? current : result;
 }
 
@@ -192,6 +200,8 @@ export function normalizeCharacter(raw) {
   state.equipment.acItems = Array.isArray(raw.equipment?.acItems)
     ? raw.equipment.acItems.slice(0, MAX_AC_ITEMS).map((item, i) => normalizeAcItem(item, i))
     : [];
+  // Scelte di classe: valide per la classe attuale; salvataggi vecchi senza il campo ricevono i default.
+  state.info.classChoices = normalizeClassChoices(raw.info?.classChoices, state.info.classId);
   state.version = SCHEMA_VERSION;
   return state;
 }

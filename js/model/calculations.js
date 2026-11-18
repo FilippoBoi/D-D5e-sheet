@@ -35,17 +35,20 @@ export function armorDexBonus(category, dexMod) {
  * @param {boolean} p.hasShield
  * @param {number} [p.magicBonus]
  * @param {Record<string, number>} p.mods
- * @param {{ability: string, allowsShield: boolean} | null} [p.unarmoredDefense]
+ * @param {{ability: string | null, allowsShield: boolean, base?: number} | null} [p.unarmoredDefense]
+ *   `base` (default 10) e `ability` (null = nessuna caratteristica oltre alla DES, es. Resilienza Draconica)
+ * @param {Array<{label: string, value: number}>} [p.armorBonuses] bonus validi solo con armatura (es. Stile Difesa)
  * @param {Array<{label: string, value: number}>} [p.extraItems] oggetti che danno CA (anelli, mantelli...)
  * @returns {{ total: number, parts: Array<{label: string, value: number}> }}
  */
-export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unarmoredDefense = null, extraItems = [] }) {
+export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unarmoredDefense = null, extraItems = [], armorBonuses = [] }) {
   const parts = [];
 
   if (armor.category === 'none') {
-    parts.push({ label: pick('Base', 'Base'), value: 10 }, { label: loc(getAbility('dex'), 'short'), value: mods.dex });
     // Difesa senza Armatura: il Monaco la perde se impugna uno scudo.
-    if (unarmoredDefense && (!hasShield || unarmoredDefense.allowsShield)) {
+    const applies = unarmoredDefense && (!hasShield || unarmoredDefense.allowsShield);
+    parts.push({ label: pick('Base', 'Base'), value: applies ? (unarmoredDefense.base ?? 10) : 10 }, { label: loc(getAbility('dex'), 'short'), value: mods.dex });
+    if (applies && unarmoredDefense.ability) {
       parts.push({ label: loc(getAbility(unarmoredDefense.ability), 'short'), value: mods[unarmoredDefense.ability] });
     }
   } else {
@@ -53,6 +56,7 @@ export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unar
     if (armor.category !== 'heavy') {
       parts.push({ label: loc(getAbility('dex'), 'short'), value: armorDexBonus(armor.category, mods.dex) });
     }
+    parts.push(...armorBonuses);
   }
 
   if (hasShield) parts.push({ label: pick('Scudo', 'Shield'), value: SHIELD_AC_BONUS });
@@ -112,10 +116,11 @@ export function spellSlotsFor(progression, level) {
 /**
  * PF massimi suggeriti: massimo del dado al 1° livello, poi la media
  * arrotondata per eccesso (dado/2 + 1) a ogni livello, più il mod. COS.
- * Ogni livello concede almeno 1 PF.
+ * Ogni livello concede almeno 1 PF. `bonusPerLevel`: PF extra per livello (Resilienza Draconica).
  */
-export function suggestedMaxHp(hitDie, level, conMod) {
+export function suggestedMaxHp(hitDie, level, conMod, bonusPerLevel = 0) {
+  const lvl = clampInt(level, 1, 20);
   const first = Math.max(1, hitDie + conMod);
   const perLevel = Math.max(1, hitDie / 2 + 1 + conMod);
-  return first + perLevel * (clampInt(level, 1, 20) - 1);
+  return first + perLevel * (lvl - 1) + bonusPerLevel * lvl;
 }
