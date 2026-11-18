@@ -1,3 +1,5 @@
+import { EXTRA_RACES } from './generated/races.js';
+
 /**
  * Le 9 razze del Manuale del Giocatore (2014), dati da 5e.tools (sorgente PHB).
  *
@@ -10,9 +12,10 @@
  * - abilityChoice / skillChoice: scelte del giocatore (menu a tendina)
  * - option: una scelta singola con etichetta e opzioni
  *
- * Non coperte: sottorazze e la lingua extra dell'Umano (testo libero nel riepilogo).
+ * Le sottorazze del PHB e le razze degli altri manuali arrivano da generated/races.js (con `source`).
+ * Non coperte: la lingua extra dell'Umano e i bonus liberi di MPMM (nessun effetto automatico).
  */
-export const RACES = Object.freeze({
+const CORE_RACES = {
   dragonborn: {
     id: 'dragonborn', name: 'Dragonide', nameEn: 'Dragonborn', speedFt: 30, darkvisionFt: 0,
     abilityBonuses: { str: 2, cha: 1 }, skills: [],
@@ -99,7 +102,13 @@ export const RACES = Object.freeze({
     traits: 'Resistenza infernale (fuoco), Magia infernale',
     traitsEn: 'Hellish Resistance (fire), Infernal Legacy',
   },
-});
+};
+
+/** Razze degli altri manuali (generate da 5e.tools, vedi scripts/build-5etools-data.mjs); `source` = sigla del manuale. */
+const withSource = (race) => Object.freeze({ source: 'PHB', ...race });
+export const RACES = Object.freeze(Object.fromEntries(
+  [...Object.values(CORE_RACES), ...EXTRA_RACES].map((race) => [race.id, withSource(race)]),
+));
 
 export const RACE_LIST = Object.freeze(Object.values(RACES));
 export const RACE_IDS = Object.freeze(Object.keys(RACES));

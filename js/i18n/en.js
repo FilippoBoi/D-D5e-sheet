@@ -19,6 +19,11 @@ export const UI_EN = {
   'Reset': 'Reset',
   'Lingua': 'Language',
 
+  // Manuali
+  'Manuali': 'Sourcebooks',
+  'Il Manuale del Giocatore è sempre attivo. Attiva gli altri per trovare razze, background e sottoclassi nei menu. Ciò che hai già scelto resta sempre visibile.':
+    'The Player\'s Handbook is always on. Turn on the others to find races, backgrounds and subclasses in the menus. Anything you already picked stays visible.',
+
   // Riepilogo
   'Riepilogo del personaggio': 'Character summary',
   'CA': 'AC',

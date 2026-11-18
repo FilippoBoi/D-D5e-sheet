@@ -121,6 +121,12 @@ Un file per classe in `js/data/classChoices/` (più `index.js`, che documenta tu
 
 Campi utili: `when: { key, in: [...] }` (la scelta esiste solo per certi valori di un'altra), `prereq: { level, choice: { key, value } }` sull'opzione, `differsFrom` (deve differire da un'altra scelta), `featureName` (riga di privilegi a cui aggiungere la scelta), `effects` sull'opzione (`acWithArmor`, `hpPerLevel`, `unarmoredDefense`, `spellcasting`) e `features: [livello, nome, descrizione, nameEn, descriptionEn]` per i privilegi della sottoclasse. Italiano e inglese sono obbligatori: `tests/i18n.test.js` fallisce se manca una traduzione. Le chiavi dello stato sono uniche tra le classi e i valori delle sottoclassi pure (lo verifica `tests/classChoices.test.js`); il default si genera dalle definizioni, quindi non serve toccare lo schema.
 
+### Altri manuali (da 5e.tools)
+
+Nel pannello *Informazioni & Classe* c'è la sezione **Manuali**: il PHB è sempre attivo, gli altri (Xanathar, Tasha, Volo, Mordenkainen, Eberron, Wildemount, Ravnica, Theros, Strixhaven, avventure…) si attivano a piacere e la scelta resta nel browser. Attivando un manuale compaiono nei menu le sue **razze e sottorazze** (con bonus, velocità, scurovisione, competenze), i suoi **background** e le sue **sottoclassi** (nome, livelli e nomi dei privilegi, con il rimando «Vedi XGE, p. 28»). Ciò che hai già scelto resta sempre visibile anche se spegni il manuale.
+
+I dati stanno in `js/data/generated/` e si rigenerano con `npm run data` (script `scripts/build-5etools-data.mjs`, che legge il mirror dei dati 2014 di 5e.tools). Non si copia il testo dei manuali: le descrizioni dei privilegi si scrivono a mano, come per il PHB. Limiti noti: nomi e tratti sono in inglese (5e.tools non ha l'italiano; i nomi italiani sono solo quelli già noti), i bonus liberi di *Mostri del Multiverso* e le varianti «Variant; …» non hanno effetto automatico, e le scelte interne delle sottoclassi (Rune, Manovre aggiuntive…) e la classe Artefice non sono ancora coperte.
+
 Fonte dei contenuti: 5e.tools (PHB 2014), con descrizioni sintetiche e non copiate. 5e.tools non ha l'italiano: i termini italiani sono quelli già nel progetto o una resa provvisoria; l'elenco di quelli da verificare sul PHB italiano è nei commenti in testa a ciascun file di dati.
 
 ### Prestazioni e accessibilità

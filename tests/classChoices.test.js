@@ -349,8 +349,12 @@ test('sottoclassi: ogni classe ha la sua, al livello giusto, con privilegi a par
     const def = subclassDef(classId);
     assert.ok(def, classId);
     assert.equal(def.minLevel, minLevel, `${classId}: livello`);
-    assert.equal(def.options.length, count, `${classId}: numero di sottoclassi`);
-    for (const o of def.options) {
+    assert.equal(def.options.filter((o) => o.source === 'PHB').length, count, `${classId}: numero di sottoclassi PHB`);
+    for (const o of def.options.filter((x) => x.source !== 'PHB')) {
+      assert.ok(o.features.length >= 1 && o.features.every((f) => f.level >= minLevel), `${classId}.${o.value}: privilegi`);
+      assert.ok(o.label && o.labelEn, `${classId}.${o.value}`);
+    }
+    for (const o of def.options.filter((x) => x.source === 'PHB')) {
       assert.ok(o.features.length >= 3, `${classId}.${o.value}`);
       assert.ok(o.features.every((f) => f.level >= minLevel), `${classId}.${o.value}: privilegio prima della scelta`);
       assert.ok(o.features.some((f) => f.level === minLevel), `${classId}.${o.value}: nessun privilegio al livello di scelta`);

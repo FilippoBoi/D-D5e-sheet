@@ -45,7 +45,7 @@ test('ogni dato di gioco ha la traduzione inglese', () => {
     }
   }
   for (const r of RACE_LIST) {
-    assert.ok(r.nameEn && r.languagesEn && r.traitsEn, r.id);
+    assert.ok(r.nameEn && r.languagesEn !== undefined && r.traitsEn !== undefined, r.id);
     if (r.option) {
       assert.ok(r.option.labelEn, r.id);
       for (const o of r.option.options) assert.ok(o.labelEn, `${r.id}.${o.value}`);

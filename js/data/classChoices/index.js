@@ -33,6 +33,7 @@ import rogue from './rogue.js';
 import sorcerer from './sorcerer.js';
 import warlock from './warlock.js';
 import wizard from './wizard.js';
+import { EXTRA_SUBCLASSES } from '../generated/subclasses.js';
 
 const freezeOption = (option) => Object.freeze({
   ...option,
@@ -45,12 +46,19 @@ const freezeChoice = (choice) => Object.freeze({
   options: Object.freeze((choice.options ?? []).map(freezeOption)),
 });
 
-const build = (definition) => Object.freeze(definition.choices.map(freezeChoice));
+/** Aggiunge alla scelta di sottoclasse quelle degli altri manuali (`source` ≠ PHB). */
+const withExtraSubclasses = (choice, classId) => (choice.subclass
+  ? { ...choice, options: [...choice.options.map((o) => ({ source: 'PHB', ...o })), ...(EXTRA_SUBCLASSES[classId] ?? [])] }
+  : choice);
+
+const build = (definition, classId) => Object.freeze(
+  definition.choices.map((choice) => freezeChoice(withExtraSubclasses(choice, classId))),
+);
 
 export const CLASS_CHOICES = Object.freeze({
-  barbarian: build(barbarian), bard: build(bard), cleric: build(cleric), druid: build(druid),
-  fighter: build(fighter), monk: build(monk), paladin: build(paladin), ranger: build(ranger),
-  rogue: build(rogue), sorcerer: build(sorcerer), warlock: build(warlock), wizard: build(wizard),
+  barbarian: build(barbarian, 'barbarian'), bard: build(bard, 'bard'), cleric: build(cleric, 'cleric'), druid: build(druid, 'druid'),
+  fighter: build(fighter, 'fighter'), monk: build(monk, 'monk'), paladin: build(paladin, 'paladin'), ranger: build(ranger, 'ranger'),
+  rogue: build(rogue, 'rogue'), sorcerer: build(sorcerer, 'sorcerer'), warlock: build(warlock, 'warlock'), wizard: build(wizard, 'wizard'),
 });
 
 /** Scelte di una classe (vuoto se sconosciuta). */
