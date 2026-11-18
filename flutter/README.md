@@ -57,6 +57,14 @@ flutter build ios --release        # iOS (serve un Mac)
 flutter build windows --release    # o linux / macos
 ```
 
+## Pubblicazione del sito
+
+`.github/workflows/pages.yml` costruisce la versione web e la pubblica su GitHub Pages: **Flutter in radice**
+(`https://filippoboi.github.io/D-D5e-sheet/`) e la versione precedente in `/classic/`. Va attivato una sola volta in
+*Settings → Pages → Build and deployment → Source: GitHub Actions* (finché la sorgente è «Deploy from a branch»,
+il sito continua a servire i file JS della radice). Chi ha già una scheda salvata nella versione JS la ritrova:
+al primo avvio l'app Flutter copia scheda, lingua, manuali e accesso dal localStorage dello stesso indirizzo.
+
 ## Test
 
 ```bash

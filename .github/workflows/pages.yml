@@ -1,0 +1,47 @@
+name: Pubblica il sito
+
+# La versione Flutter è il sito principale; la versione web precedente (HTML/JS) resta raggiungibile in /classic/.
+# Richiede, una sola volta: Settings → Pages → Build and deployment → Source: «GitHub Actions».
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Build Flutter web
+        working-directory: flutter
+        run: |
+          flutter pub get
+          flutter build web --release --base-href /D-D5e-sheet/
+      - name: Assembla il sito (Flutter in radice, versione precedente in /classic/)
+        run: |
+          mkdir -p _site/classic
+          cp -R flutter/build/web/. _site/
+          cp -R index.html css js _site/classic/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
