@@ -484,3 +484,231 @@ test('cambiare sottoclasse non tocca le scelte indipendenti (stile di combattime
   model.set('info.classChoices.subclass', 'champion');
   assert.equal(model.get('info.classChoices.fightingStyle'), 'defense');
 });
+
+// ------------------------------------------------------------------ fase C: scelte multiple e progressive
+
+const group = (model, key) => model.getDerived().classChoices.find((g) => g.key === key);
+const pickMany = (model, key, values) => values.map((v) => model.toggleChoice(key, v));
+
+test('Metamagia: 2 al 3°, 3 al 10°, 4 al 17°', () => {
+  const model = make({ classId: 'sorcerer', level: 2 });
+  assert.equal(group(model, 'metamagic'), undefined, 'non esiste prima del 3°');
+  for (const [level, count] of [[3, 2], [9, 2], [10, 3], [16, 3], [17, 4], [20, 4]]) {
+    model.set('info.level', level);
+    assert.equal(group(model, 'metamagic').count, count, `livello ${level}`);
+  }
+  model.set('info.level', 3);
+  assert.deepEqual(pickMany(model, 'metamagic', ['quickened', 'twinned', 'subtle']), [true, true, false]);
+  model.set('info.level', 10);
+  assert.equal(model.toggleChoice('metamagic', 'subtle'), true);
+  assert.equal(group(model, 'metamagic').options.length, 8);
+});
+
+test('Suppliche Occulte: quantità del PHB, coerente con la risorsa di classe', () => {
+  const def = CLASS_CHOICES.warlock.find((d) => d.key === 'invocations');
+  const expected = [0, 2, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8];
+  expected.forEach((n, i) => assert.equal(choiceCount(def, i + 1), n, `livello ${i + 1}`));
+  for (let level = 2; level <= 20; level += 1) {
+    const model = make({ classId: 'warlock', level });
+    const resource = model.getDerived().resources.find((r) => r.label === 'Suppliche Occulte').value;
+    assert.equal(resource, String(choiceCount(def, level)), `risorsa al ${level}°`);
+  }
+  const sources = { none: 11, blast: 3, level: 13, pact: 5 };
+  const kinds = { none: 0, blast: 0, level: 0, pact: 0 };
+  for (const o of def.options) {
+    if (o.prereq?.choice) kinds.pact += 1; else if (o.prereq?.level) kinds.level += 1; else if (o.prereqNote) kinds.blast += 1; else kinds.none += 1;
+  }
+  assert.deepEqual(kinds, sources, '32 suppliche del PHB');
+});
+
+test('Suppliche: prerequisiti di livello e di Patto bloccano la scelta; Esplosione Occulta è solo una nota', () => {
+  const model = make({ classId: 'warlock', level: 2 });
+  assert.equal(model.toggleChoice('invocations', 'mireMind'), false, 'serve il 5° livello');
+  assert.equal(model.toggleChoice('invocations', 'agonizingBlast'), true, 'il trucchetto non è verificabile: ammessa');
+  assert.match(group(model, 'invocations').options.find((o) => o.value === 'agonizingBlast').note, /Richiede: .*Esplosione Occulta/);
+  model.set('info.level', 5);
+  assert.equal(model.toggleChoice('invocations', 'thirstingBlade'), false, 'serve il Patto della Lama');
+  model.set('info.classChoices.pactBoon', 'blade');
+  assert.equal(model.toggleChoice('invocations', 'thirstingBlade'), true);
+  assert.equal(model.toggleChoice('invocations', 'voiceChainMaster'), false, 'è del Patto della Catena');
+  assert.equal(model.toggleChoice('invocations', 'beastSpeech'), true);
+  assert.equal(model.toggleChoice('invocations', 'eldritchSight'), false, 'quota di 3 al 5°, ormai piena');
+});
+
+test('Suppliche: se un prerequisito viene meno la supplica resta memorizzata ma non conta e viene segnalata', () => {
+  const model = make({ classId: 'warlock', level: 12 });
+  model.set('info.classChoices.pactBoon', 'blade');
+  pickMany(model, 'invocations', ['lifedrinker', 'thirstingBlade', 'beastSpeech']);
+  assert.equal(group(model, 'invocations').selectedCount, 3);
+
+  model.set('info.classChoices.pactBoon', 'tome');
+  let g = group(model, 'invocations');
+  assert.deepEqual(model.get('info.classChoices.invocations'), ['lifedrinker', 'thirstingBlade', 'beastSpeech']);
+  assert.equal(g.selectedCount, 1);
+  assert.equal(g.blocked.length, 2);
+  assert.ok(g.blocked.every((b) => b.reason));
+
+  model.set('info.classChoices.pactBoon', 'blade');
+  assert.equal(group(model, 'invocations').selectedCount, 3, 'tornano a contare');
+
+  model.set('info.level', 11);
+  assert.equal(group(model, 'invocations').blocked.length, 1, 'Bevitore di Vita richiede il 12°, non l\'11°');
+  model.set('info.level', 5);
+  g = group(model, 'invocations');
+  assert.equal(g.count, 3);
+  assert.equal(g.blocked.length, 1, 'Bevitore di Vita richiede il 12°');
+  model.set('info.level', 2);
+  g = group(model, 'invocations');
+  assert.equal(g.selectedCount, 1);
+  assert.deepEqual(model.get('info.classChoices.invocations').length, 3, 'nulla cancellato');
+});
+
+test('Dono del Patto e Arcanum Mistico: scelta singola e testo breve', () => {
+  const model = make({ classId: 'warlock', level: 10 });
+  assert.equal(group(model, 'pactBoon').options.length, 3);
+  assert.equal(group(model, 'arcanum6'), undefined);
+  model.set('info.level', 11);
+  assert.ok(group(model, 'arcanum6'));
+  assert.equal(group(model, 'arcanum7'), undefined);
+  assert.equal(model.set('info.classChoices.arcanum6', 'Disintegrazione'), true);
+  assert.equal(model.set('info.classChoices.arcanum6', 'x'.repeat(200)), true);
+  assert.equal(model.get('info.classChoices.arcanum6').length, 60, 'lunghezza massima');
+  model.set('info.classChoices.arcanum6', 'Disintegrazione');
+  model.set('info.classChoices.pactBoon', 'chain');
+  const features = model.getDerived().features;
+  assert.match(features.find((f) => f.name.startsWith('Arcanum Mistico (6°')).description, /Scelta: Disintegrazione/);
+  assert.match(features.find((f) => f.name === 'Dono del Patto').description, /Scelta: Patto della Catena/);
+  model.set('info.level', 17);
+  for (const l of [6, 7, 8, 9]) assert.ok(group(model, `arcanum${l}`), `arcanum${l}`);
+});
+
+test('Manovre: solo per il Maestro di Battaglia, 3/5/7/9 per livello, si azzerano cambiando archetipo', () => {
+  const model = make({ classId: 'fighter', level: 3 });
+  assert.equal(group(model, 'maneuvers'), undefined);
+  model.set('info.classChoices.subclass', 'battleMaster');
+  for (const [level, count] of [[3, 3], [6, 3], [7, 5], [10, 7], [14, 7], [15, 9]]) {
+    model.set('info.level', level);
+    assert.equal(group(model, 'maneuvers').count, count, `livello ${level}`);
+  }
+  model.set('info.level', 3);
+  assert.deepEqual(pickMany(model, 'maneuvers', ['parry', 'riposte', 'rally', 'trip']), [true, true, true, false]);
+  assert.equal(group(model, 'maneuvers').options.length, 16);
+  assert.equal(model.set('info.classChoices.studentTool', 'smith'), true);
+  assert.equal(model.set('info.classChoices.studentTool', 'sword'), false);
+  assert.match(model.getDerived().features.find((f) => f.name === 'Superiorità in Combattimento').description, /Scelte: Parata, Risposta, Incitamento/);
+  model.set('info.classChoices.subclass', 'champion');
+  assert.deepEqual(model.get('info.classChoices.maneuvers'), []);
+  assert.equal(model.get('info.classChoices.studentTool'), '');
+});
+
+test('Stile extra del Campione al 10°: diverso dal primo, la Difesa conta una volta sola', () => {
+  const model = make({ classId: 'fighter', level: 9 }, { equipment: { armorId: 'chainMail' } });
+  model.set('info.classChoices.subclass', 'champion');
+  assert.equal(group(model, 'fightingStyle2'), undefined, 'prima del 10°');
+  model.set('info.level', 10);
+  model.set('info.classChoices.fightingStyle', 'defense');
+  assert.equal(group(model, 'fightingStyle2').options.some((o) => o.value === 'defense'), false, 'Difesa non offerta due volte');
+  assert.equal(model.set('info.classChoices.fightingStyle2', 'defense'), false);
+  assert.equal(model.set('info.classChoices.fightingStyle2', 'dueling'), true);
+  assert.equal(model.getDerived().ac, 17, '16 + 1, una volta');
+
+  model.set('info.classChoices.fightingStyle', 'dueling'); // ora uguale al secondo: il secondo si azzera
+  assert.equal(model.get('info.classChoices.fightingStyle2'), '');
+  assert.equal(model.getDerived().ac, 16);
+  model.set('info.classChoices.fightingStyle2', 'defense');
+  assert.equal(model.getDerived().ac, 17, 'la Difesa come secondo stile funziona');
+  assert.equal(normalizeCharacter({ info: { classId: 'fighter', level: 10, classChoices: { subclass: 'champion', fightingStyle: 'archery', fightingStyle2: 'archery' } } }).info.classChoices.fightingStyle2, '');
+});
+
+test('Discipline Elementali: 1 al 3°, +1 al 6°, 11° e 17°; quelle di livello alto solo dal loro livello', () => {
+  const model = make({ classId: 'monk', level: 3 });
+  assert.equal(group(model, 'disciplines'), undefined);
+  model.set('info.classChoices.subclass', 'fourElements');
+  for (const [level, count] of [[3, 1], [5, 1], [6, 2], [10, 2], [11, 3], [16, 3], [17, 4]]) {
+    model.set('info.level', level);
+    assert.equal(group(model, 'disciplines').count, count, `livello ${level}`);
+  }
+  model.set('info.level', 3);
+  assert.equal(model.toggleChoice('disciplines', 'clenchNorthWind'), false, 'richiede il 6°');
+  assert.equal(model.toggleChoice('disciplines', 'waterWhip'), true);
+  model.set('info.level', 6);
+  assert.equal(model.toggleChoice('disciplines', 'clenchNorthWind'), true);
+  assert.equal(model.toggleChoice('disciplines', 'breathWinter'), false, 'richiede il 17°');
+  assert.equal(group(model, 'disciplines').options.length, 16, 'Sintonia Elementale non si sceglie');
+  model.set('info.level', 3); // calo: la seconda resta memorizzata ma non conta
+  assert.equal(group(model, 'disciplines').selectedCount, 1);
+  assert.equal(model.get('info.classChoices.disciplines').length, 2);
+});
+
+test('Maestria del Bardo: 2 al 3°, 4 al 10°, solo su abilità competenti', () => {
+  const model = make({ classId: 'bard', level: 3 }, { skills: { stealth: { proficient: true }, persuasion: { proficient: true }, performance: { proficient: true } } });
+  assert.equal(model.toggleChoice('expertise', 'arcana'), false);
+  assert.deepEqual(pickMany(model, 'expertise', ['persuasion', 'performance', 'stealth']), [true, true, false]);
+  // CAR 10 → 0; competenza +2 raddoppiata = +4
+  assert.equal(model.getDerived().skills.persuasion, 4);
+  model.set('info.level', 10);
+  assert.equal(group(model, 'expertise').count, 4);
+  assert.equal(model.toggleChoice('expertise', 'stealth'), true);
+  assert.equal(model.getDerived().skills.stealth, 0 + 4 * 2, 'competenza +4 al 10°, raddoppiata');
+});
+
+test('Guerriero Totemico: spirito (3°), aspetto (6°), sintonia (14°); scelte indipendenti e dipendenti dal cammino', () => {
+  const model = make({ classId: 'barbarian', level: 3 });
+  model.set('info.classChoices.subclass', 'totemWarrior');
+  assert.deepEqual(model.getDerived().classChoices.map((g) => g.key), ['subclass', 'totemSpirit']);
+  model.set('info.level', 14);
+  assert.deepEqual(model.getDerived().classChoices.map((g) => g.key), ['subclass', 'totemSpirit', 'totemAspect', 'totemAttunement']);
+  model.set('info.classChoices.totemSpirit', 'bear');
+  model.set('info.classChoices.totemAspect', 'bear');
+  model.set('info.classChoices.totemAttunement', 'wolf');
+  const spirit = model.getDerived().features.find((f) => f.name === 'Spirito Totemico');
+  assert.match(spirit.description, /Scelta: Orso\. In ira hai resistenza/);
+  assert.match(model.getDerived().features.find((f) => f.name === 'Sintonia Totemica').description, /Scelta: Lupo/);
+  model.set('info.classChoices.subclass', 'berserker');
+  assert.equal(model.get('info.classChoices.totemSpirit'), '');
+  assert.equal(model.get('info.classChoices.totemAttunement'), '');
+});
+
+test('Cacciatore: una scelta a 3°, 7°, 11° e 15° livello, azzerate cambiando archetipo', () => {
+  const model = make({ classId: 'ranger', level: 3 });
+  model.set('info.classChoices.subclass', 'hunter');
+  const keys = () => model.getDerived().classChoices.map((g) => g.key).filter((k) => !k.startsWith('favored') && k !== 'fightingStyle' && k !== 'subclass');
+  assert.deepEqual(keys(), ['huntersPrey']);
+  for (const [level, expected] of [[7, 2], [11, 3], [15, 4]]) { model.set('info.level', level); assert.equal(keys().length, expected); }
+  model.set('info.classChoices.huntersPrey', 'colossusSlayer');
+  assert.equal(model.set('info.classChoices.huntersPrey', 'volley'), false, 'opzione di un\'altra scelta');
+  model.set('info.classChoices.superiorDefense', 'evasion');
+  assert.match(model.getDerived().features.find((f) => f.name === 'Preda del Cacciatore').description, /Assassino di Colossi/);
+  model.set('info.classChoices.subclass', 'beastMaster');
+  assert.equal(model.get('info.classChoices.huntersPrey'), '');
+  assert.equal(model.get('info.classChoices.superiorDefense'), '');
+  assert.deepEqual(keys(), []);
+});
+
+test('scelte multiple e di testo passano senza perdite da normalizeCharacter dopo ogni modifica', () => {
+  const model = make({ classId: 'warlock', level: 15 });
+  model.set('info.classChoices.pactBoon', 'chain');
+  pickMany(model, 'invocations', ['beastSpeech', 'chainsCarceri', 'voiceChainMaster']);
+  model.set('info.classChoices.arcanum6', 'Disintegrazione');
+  const doc = model.toJSON();
+  assert.deepEqual(normalizeCharacter(doc).info.classChoices, doc.info.classChoices);
+  assert.equal(doc.info.classChoices.invocations.length, 3);
+});
+
+test('gli elementi memorizzati ma non validi (oltre quota o con prerequisito perso) si possono togliere', () => {
+  const model = make({ classId: 'ranger', level: 14 });
+  pickMany(model, 'favoredEnemy', ['beasts', 'undead', 'dragons']);
+  model.set('info.level', 1);
+  const g = group(model, 'favoredEnemy');
+  assert.deepEqual(g.overflow.map((o) => o.value), ['undead', 'dragons']);
+  assert.equal(model.toggleChoice('favoredEnemy', 'dragons'), true, 'rimossa pur non contando');
+  assert.deepEqual(model.get('info.classChoices.favoredEnemy'), ['beasts', 'undead']);
+
+  const warlock = make({ classId: 'warlock', level: 12 });
+  warlock.set('info.classChoices.pactBoon', 'blade');
+  warlock.toggleChoice('invocations', 'lifedrinker');
+  warlock.set('info.classChoices.pactBoon', 'tome');
+  assert.equal(group(warlock, 'invocations').blocked[0].value, 'lifedrinker');
+  assert.equal(warlock.toggleChoice('invocations', 'lifedrinker'), true);
+  assert.deepEqual(warlock.get('info.classChoices.invocations'), []);
+});
