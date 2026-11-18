@@ -161,11 +161,17 @@ export function deriveStats(state) {
   }
 
   // Menu a tendina per le competenze di classe (una per scelta consentita)
-  const classSkillSlots = Array.from({ length: classStart.skillChoice.count }, (_, i) => ({
-    key: `skill${i + 1}`,
-    value: classSkillIds[i] ?? '',
-    options: skillOptions(classStart.skillChoice.from),
-  }));
+  // Le abilità già concesse da razza o background non vanno ripetute: non si offrono (resta quella già scelta,
+  // segnalata come doppione) e il regolamento chiede di sceglierne un'altra.
+  const classSkillSlots = Array.from({ length: classStart.skillChoice.count }, (_, i) => {
+    const value = classSkillIds[i] ?? '';
+    return {
+      key: `skill${i + 1}`,
+      value,
+      duplicate: Boolean(value) && racialSkills.has(value),
+      options: skillOptions(classStart.skillChoice.from.filter((id) => !racialSkills.has(id) || id === value)),
+    };
+  });
 
   const classChoiceGroups = describeChoiceGroups(resolved, level, baseProficient, cls.id);
 
@@ -233,6 +239,12 @@ export function deriveStats(state) {
       };
     }),
     hasWeapons: state.weapons.length > 0,
+    // Riepilogo in alto: il TpC più alto tra le armi in tabella (assente se non ce ne sono).
+    topAttack: state.weapons.length
+      ? Math.max(...state.weapons.map((w) => attackBonus({
+        abilityMod: mods[w.ability], profBonus, proficient: w.proficient, magicBonus: w.magicBonus,
+      })))
+      : null,
 
     spellcasting: {
       isCaster,
