@@ -60,6 +60,8 @@ ThemeData buildTheme(Brightness brightness) {
     scaffoldBackgroundColor: bg,
     extensions: [c],
     visualDensity: VisualDensity.standard,
+    // Bersagli di tocco di almeno 48 px anche su web e desktop (tablet con tastiera, S Pen).
+    materialTapTargetSize: MaterialTapTargetSize.padded,
     textTheme: Typography.material2021().black.apply(bodyColor: text, displayColor: text, fontFamily: null),
     inputDecorationTheme: InputDecorationTheme(
       filled: true, fillColor: input, isDense: true,
@@ -74,10 +76,10 @@ ThemeData buildTheme(Brightness brightness) {
     ),
     dividerColor: c.border,
     dialogTheme: DialogThemeData(backgroundColor: c.card, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: c.borderStrong))),
-    filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(48, 44))),
-    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size(48, 44), side: BorderSide(color: c.borderStrong))),
-    textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(minimumSize: const Size(48, 44))),
-    iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(minimumSize: const Size(44, 44))),
+    filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(48, 48))),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48), side: BorderSide(color: c.borderStrong))),
+    textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(minimumSize: const Size(48, 48))),
+    iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(minimumSize: const Size(48, 48))),
     checkboxTheme: CheckboxThemeData(fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.accent : null)),
   );
 }

@@ -180,10 +180,10 @@ class SkillsPanel extends StatelessWidget {
           SizedBox(width: 48, child: Text(tr('Maes.'), style: TextStyle(fontSize: 11, color: c.muted))),
           Expanded(child: Text(tr('Abilità'), style: TextStyle(fontSize: 11, color: c.muted))),
           Text(tr('Bonus'), style: TextStyle(fontSize: 11, color: c.muted)),
-          const SizedBox(width: 44),
+          const SizedBox(width: 48),
         ]),
       ),
-      ResponsiveWrap(minWidth: 340, spacing: 24, children: [
+      ResponsiveWrap(minWidth: 340, spacing: 24, runSpacing: 2, children: [
         for (final s in skills)
           () {
             final id = s['id'] as String;

@@ -236,6 +236,6 @@ class InfoButton extends StatelessWidget {
         tooltip: '${pick('Descrizione', 'Description')}: $name',
         onPressed: onPressed,
         icon: Icon(Icons.info_outline, size: 20, color: context.colors.accentStrong),
-        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // bersaglio di tocco comodo con le dita e con la penna
       );
 }

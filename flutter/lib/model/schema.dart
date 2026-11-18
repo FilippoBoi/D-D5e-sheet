@@ -14,6 +14,8 @@ import 'utils.dart';
 const schemaVersion = 1;
 const maxWeapons = 30;
 const maxAcItems = 10;
+const maxNotes = 100;
+const maxNoteTitle = 80;
 const _maxTextLength = 20000;
 const _weaponAbilities = ['str', 'dex'];
 
@@ -31,6 +33,9 @@ Map<String, dynamic> classSaveProficiencies(String classId) {
 Json createWeapon() => {
       'id': createId(), 'name': '', 'ability': 'str', 'proficient': true, 'magicBonus': 0, 'damage': '1d8', 'damageType': '',
     };
+
+/// Nota libera con titolo (sessioni, PNG, luoghi, to-do…). Le note predefinite restano in notes.traits e notes.backstory.
+Json createNote() => {'id': createId(), 'title': '', 'text': ''};
 
 Json createAcItem() => {'id': createId(), 'name': '', 'bonus': 0};
 
@@ -67,7 +72,7 @@ Json createDefaultCharacter() {
       for (var i = 1; i <= Catalog.maxLanguagePicks; i++) 'pick$i': '',
       'other': '',
     },
-    'notes': {'traits': '', 'backstory': ''},
+    'notes': {'traits': '', 'backstory': '', 'items': <Json>[]},
   });
 }
 
@@ -91,6 +96,7 @@ final List<(RegExp, _Rule)> _rules = [
   }),
   (RegExp(r'^equipment\.acItems\.\d+\.name$'), (v, _) => _cut(v as String, 80)),
   (RegExp(r'^equipment\.acItems\.\d+\.bonus$'), (v, _) => clampInt(v as num, -5, 10)),
+  (RegExp(r'^notes\.items\.\d+\.title$'), (v, _) => _cut(v as String, maxNoteTitle)),
   (RegExp(r'^abilities\.\w+$'), (v, _) => clampInt(v as num, 1, 30)),
   (RegExp(r'^combat\.hpMax$'), (v, _) => clampInt(v as num, 1, 999)),
   (RegExp(r'^combat\.(hpCurrent|hpTemp)$'), (v, _) => clampInt(v as num, 0, 999)),
@@ -162,6 +168,17 @@ Json _normalizeWeapon(Object? raw, int index, Set<String> usedIds) {
   return weapon;
 }
 
+Json _normalizeNote(Object? raw, int index, Set<String> usedIds) {
+  final note = createNote();
+  if (raw is! Map) return note;
+  note['title'] = sanitizeValue('notes.items.$index.title', raw['title'], note['title']);
+  note['text'] = sanitizeValue('notes.items.$index.text', raw['text'], note['text']);
+  final id = raw['id'];
+  if (id is String && id.isNotEmpty && id.length <= 64 && !usedIds.contains(id)) note['id'] = id;
+  usedIds.add(note['id'] as String);
+  return note;
+}
+
 Json _normalizeAcItem(Object? raw, int index) {
   final item = createAcItem();
   if (raw is! Map) return item;
@@ -196,6 +213,10 @@ Json normalizeCharacter(Object? raw) {
   final rawAc = raw['equipment'] is Map ? (raw['equipment'] as Map)['acItems'] : null;
   (state['equipment'] as Json)['acItems'] =
       rawAc is List ? [for (final (i, item) in rawAc.take(maxAcItems).indexed) _normalizeAcItem(item, i)] : <Json>[];
+  final rawNotes = raw['notes'] is Map ? (raw['notes'] as Map)['items'] : null;
+  final noteIds = <String>{};
+  (state['notes'] as Json)['items'] =
+      rawNotes is List ? [for (final (i, n) in rawNotes.take(maxNotes).indexed) _normalizeNote(n, i, noteIds)] : <Json>[];
   final rawSpells = raw['spells'] is Map ? raw['spells'] as Map : const {};
   (state['spells'] as Json)['cantripIds'] = _normalizeSpellIds(rawSpells['cantripIds'], true);
   (state['spells'] as Json)['spellIds'] = _normalizeSpellIds(rawSpells['spellIds'], false);

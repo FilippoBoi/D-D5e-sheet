@@ -176,6 +176,50 @@ class CharacterModel extends ChangeNotifier {
     if ((eq['acItems'] as List).length != before) _emit('equipment.acItems');
   }
 
+  // ------------------------------------------------------------- Note libere
+
+  List<Json> get _notes => ((_state['notes'] as Json)['items'] as List).cast<Json>();
+
+  /// Indice della nota con questo id, o -1.
+  int noteIndex(String id) => _notes.indexWhere((n) => n['id'] == id);
+
+  /// Aggiunge una nota in fondo (o in [at]); restituisce l'id, o null se si è al limite.
+  String? addNote({String title = '', String text = '', int? at}) {
+    final notes = _notes;
+    if (notes.length >= maxNotes) return null;
+    final note = createNote();
+    note['title'] = sanitizeValue('notes.items.${notes.length}.title', title, '');
+    note['text'] = sanitizeValue('notes.items.${notes.length}.text', text, '');
+    notes.insert((at ?? notes.length).clamp(0, notes.length), note);
+    _emit('notes.items');
+    return note['id'] as String;
+  }
+
+  void removeNote(String id) {
+    final i = noteIndex(id);
+    if (i < 0) return;
+    _notes.removeAt(i);
+    _emit('notes.items');
+  }
+
+  /// Sposta la nota di [delta] posizioni (-1 su, +1 giù).
+  void moveNote(String id, int delta) {
+    final notes = _notes;
+    final from = noteIndex(id);
+    final to = from + delta;
+    if (from < 0 || to < 0 || to >= notes.length) return;
+    notes.insert(to, notes.removeAt(from));
+    _emit('notes.items');
+  }
+
+  /// Sposta la nota all'indice [to] (per il trascinamento: indice finale nella lista già senza di lei).
+  void reorderNote(int from, int to) {
+    final notes = _notes;
+    if (from < 0 || from >= notes.length || to < 0 || to >= notes.length || from == to) return;
+    notes.insert(to, notes.removeAt(from));
+    _emit('notes.items');
+  }
+
   void addWeapon() {
     final weapons = _state['weapons'] as List;
     if (weapons.length >= maxWeapons) return;

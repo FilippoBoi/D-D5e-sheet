@@ -15,8 +15,9 @@ class Subhead extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 6),
-        child: Row(children: [
-          Expanded(child: Text(text.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: context.colors.muted))),
+        // Wrap e non Row: con testo ingrandito o schermo stretto il pulsante va a capo invece di uscire dallo schermo.
+        child: Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, runSpacing: 4, spacing: 8, children: [
+          Text(text.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: context.colors.muted)),
           ?trailing,
         ]),
       );
@@ -80,23 +81,26 @@ class StatBox extends StatelessWidget {
 
 /// Dispone i figli in colonne che si adattano alla larghezza (come `.grid` della versione web).
 class ResponsiveWrap extends StatelessWidget {
-  const ResponsiveWrap({super.key, required this.children, this.minWidth = 220, this.spacing = 12});
+  const ResponsiveWrap({super.key, required this.children, this.minWidth = 220, this.spacing = 12, this.runSpacing});
   final List<Widget> children;
   final double minWidth;
   final double spacing;
+
+  /// Distanza tra le righe; se manca vale quanto [spacing].
+  final double? runSpacing;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
         final cols = (box.maxWidth / (minWidth + spacing)).floor().clamp(1, 6);
         final width = (box.maxWidth - spacing * (cols - 1)) / cols;
-        return Wrap(spacing: spacing, runSpacing: spacing, children: [for (final c in children) SizedBox(width: width, child: c)]);
+        return Wrap(spacing: spacing, runSpacing: runSpacing ?? spacing, children: [for (final c in children) SizedBox(width: width, child: c)]);
       });
 }
 
 /// Campo di testo o numerico legato a un percorso dello stato (come `data-bind`).
 /// Mostra il valore del modello e lo riallinea (validato) quando perde il fuoco.
 class BoundField extends StatefulWidget {
-  const BoundField({super.key, required this.model, required this.path, required this.label, this.number = false, this.decimal = false, this.lines = 1, this.hint, this.maxLength});
+  const BoundField({super.key, required this.model, required this.path, required this.label, this.number = false, this.decimal = false, this.lines = 1, this.hint, this.maxLength, this.expands = false, this.sentences = false, this.autofocus = false});
   final CharacterModel model;
   final String path;
   final String label;
@@ -105,6 +109,15 @@ class BoundField extends StatefulWidget {
   final int lines;
   final String? hint;
   final int? maxLength;
+
+  /// Riempie tutto lo spazio verticale disponibile (editor delle note); richiede un genitore con altezza definita.
+  final bool expands;
+
+  /// Maiuscola a inizio frase (testi liberi).
+  final bool sentences;
+
+  /// Prende il fuoco appena creato (titolo di una nota nuova).
+  final bool autofocus;
 
   @override
   State<BoundField> createState() => _BoundFieldState();
@@ -154,14 +167,21 @@ class _BoundFieldState extends State<BoundField> {
   Widget build(BuildContext context) => TextField(
         controller: _controller,
         focusNode: _focus,
-        minLines: widget.lines,
-        maxLines: widget.lines == 1 ? 1 : widget.lines + 4,
+        autofocus: widget.autofocus,
+        minLines: widget.expands ? null : widget.lines,
+        maxLines: widget.expands ? null : (widget.lines == 1 ? 1 : widget.lines + 4),
+        expands: widget.expands,
+        textAlignVertical: widget.expands ? TextAlignVertical.top : null,
         maxLength: widget.maxLength,
+        textCapitalization: widget.sentences ? TextCapitalization.sentences : TextCapitalization.none,
+        // Scrittura a mano con la S Pen (e Apple Pencil): resta attiva, è anche il valore predefinito di Flutter.
+        stylusHandwritingEnabled: true,
+        scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
         keyboardType: widget.number
             ? TextInputType.numberWithOptions(decimal: widget.decimal, signed: true)
-            : (widget.lines > 1 ? TextInputType.multiline : TextInputType.text),
+            : (widget.lines > 1 || widget.expands ? TextInputType.multiline : TextInputType.text),
         inputFormatters: widget.number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.\-]'))] : null,
-        decoration: InputDecoration(labelText: widget.label, hintText: widget.hint, alignLabelWithHint: widget.lines > 1, counterText: ''),
+        decoration: InputDecoration(labelText: widget.label, hintText: widget.hint, alignLabelWithHint: widget.lines > 1 || widget.expands, counterText: ''),
         onChanged: (text) => widget.model.set(widget.path, text),
       );
 }
@@ -204,14 +224,18 @@ class CheckRow extends StatelessWidget {
   final bool enabled;
 
   @override
-  Widget build(BuildContext context) => CheckboxListTile(
-        value: value,
-        onChanged: enabled && onChanged != null ? (v) => onChanged!(v ?? false) : null,
-        title: Text(label),
-        subtitle: subtitle == null || subtitle!.isEmpty ? null : Text(subtitle!, style: TextStyle(fontSize: 12, color: context.colors.muted)),
-        dense: true,
-        controlAffinity: ListTileControlAffinity.leading,
-        contentPadding: EdgeInsets.zero,
+  // Material trasparente: dentro un riquadro colorato l'effetto del tocco resta visibile.
+  Widget build(BuildContext context) => Material(
+        type: MaterialType.transparency,
+        child: CheckboxListTile(
+          value: value,
+          onChanged: enabled && onChanged != null ? (v) => onChanged!(v ?? false) : null,
+          title: Text(label),
+          subtitle: subtitle == null || subtitle!.isEmpty ? null : Text(subtitle!, style: TextStyle(fontSize: 12, color: context.colors.muted)),
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+        ),
       );
 }
 
@@ -226,15 +250,16 @@ class Pips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Wrap(spacing: 4, children: [
+    return Wrap(children: [
       for (var i = 0; i < max; i++)
         Semantics(
           button: true, selected: i < used, label: '$semanticLabel ${i + 1}',
           child: InkResponse(
             onTap: () => onChanged(i < used && i == used - 1 ? i : i + 1),
-            radius: 22,
+            radius: 24,
+            // Area di tocco di 48×48 (il pallino resta di 20).
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(14),
               child: Container(
                 width: 20, height: 20,
                 decoration: BoxDecoration(

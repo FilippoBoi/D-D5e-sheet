@@ -56,8 +56,8 @@ class FeaturesPanel extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: c.cardRaised, borderRadius: BorderRadius.circular(8), border: Border.all(color: c.border)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(child: Text(u['label'] as String, style: const TextStyle(fontWeight: FontWeight.w700))),
+                Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, children: [
+                  Text(u['label'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
                   Tag(recharge[u['recharge']]!, green: u['recharge'] == 'long'),
                 ]),
                 Row(children: [
