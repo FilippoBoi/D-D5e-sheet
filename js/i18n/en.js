@@ -145,7 +145,17 @@ export const UI_EN = {
   // 7. Privilegi
   'Privilegi, Tratti & Capacità di Classe': 'Features, Traits & Class Abilities',
   'Risorse di classe': 'Class resources',
-  'Tratti razziali & talenti': 'Racial traits & feats',
+  'Talenti & altri tratti': 'Feats & other traits',
+  'Talenti, tratti di mostruosità, doni…': 'Feats, monstrous traits, boons…',
+  'Resistenze': 'Resistances',
+  'Competenze razziali': 'Racial proficiencies',
+  'Tratti razziali': 'Racial traits',
+  'Linguaggi': 'Languages',
+  'Lingue conosciute:': 'Known languages:',
+  'Le lingue di razza, background e classe si aggiungono da sole. Scegli qui sotto quelle a scelta e scrivi le altre apprese durante il gioco.':
+    'Languages from your race, background and class are added automatically. Pick the ones you choose below and write any others learned in play.',
+  'Altre lingue (separate da virgola)': 'Other languages (comma-separated)',
+  'Es. Linguaggio dei segni, Cant dei ladri…': 'E.g. Sign language, Thieves\' Cant…',
   'Scurovisione, Ascendenza fatata…': 'Darkvision, Fey Ancestry…',
   'Storia & personalità': 'Backstory & personality',
   'Dati salvati solo nel tuo browser. Progetto non ufficiale basato sulle regole di D&D 5E.':

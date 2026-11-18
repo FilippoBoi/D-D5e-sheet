@@ -14,6 +14,8 @@ import { BACKGROUND_IDS, NO_BACKGROUND_ID } from '../data/backgrounds.js';
 import { SKILLS } from '../data/skills.js';
 import { normalizeClassChoices } from './classChoices.js';
 import { RESOURCE_IDS } from '../data/classResources.js';
+import { RACE_RESOURCE_IDS } from '../data/raceTraits.js';
+import { LANGUAGE_IDS, MAX_LANGUAGE_PICKS } from '../data/languages.js';
 const SKILL_IDS = SKILLS.map((s) => s.id);
 import { clamp, clampInt, isPlainObject } from '../core/utils.js';
 
@@ -85,10 +87,15 @@ export function createDefaultCharacter() {
     },
     weapons: [],
     // Usi già spesi delle risorse a riposo (Ire, Ki, Azione Impetuosa...): si azzerano coi riposi.
-    resourcesUsed: Object.fromEntries(RESOURCE_IDS.map((id) => [id, 0])),
+    resourcesUsed: Object.fromEntries([...RESOURCE_IDS, ...RACE_RESOURCE_IDS].map((id) => [id, 0])),
     spells: {
       cantrips: '', prepared: '',
       slotsUsed: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), 0])),
+    },
+    // Lingue a scelta (razza, background) e altre conosciute: il resto si ricava da razza, background e classe.
+    languages: {
+      ...Object.fromEntries(Array.from({ length: MAX_LANGUAGE_PICKS }, (_, i) => [`pick${i + 1}`, ''])),
+      other: '',
     },
     notes: { traits: '', backstory: '' },
   };
@@ -122,6 +129,8 @@ const RULES = [
   [/^(equipment|weapons\.\d+)\.magicBonus$/, (v) => clampInt(v, -5, 10)],
   [/^weapons\.\d+\.ability$/, (v) => (WEAPON_ABILITIES.includes(v) ? v : undefined)],
   [/^weapons\.\d+\.(name|damage|damageType)$/, (v) => v.slice(0, 80)],
+  [/^languages\.pick\d$/, (v) => (v === '' || LANGUAGE_IDS.includes(v) ? v : undefined)],
+  [/^languages\.other$/, (v) => v.slice(0, 200)],
   [/^resourcesUsed\.\w+$/, (v) => clampInt(v, 0, 999)],
   [/^spells\.slotsUsed\.\d$/, (v) => clampInt(v, 0, 9)],
   [/^equipment\.coins\.\w+$/, (v) => clampInt(v, 0, 9_999_999)],

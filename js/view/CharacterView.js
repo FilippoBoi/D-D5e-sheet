@@ -179,6 +179,8 @@ export class CharacterView {
     this.#renderWeapons(state.weapons);
     this.#renderSpellSlots(derived.spellcasting.slots);
     this.#renderFeatures(derived.features);
+    this.#renderRaceTraits(derived.raceTraits);
+    this.#renderLanguageSlots(derived.languageInfo.slots);
     this.#renderResources(derived.infoResources);
     this.#renderUsables(derived.usables);
     this.#renderOrigins(state, derived.sources);
@@ -277,6 +279,37 @@ export class CharacterView {
         el('div', { class: 'feature__name' }, [f.name, f.tag ? el('span', { class: 'feature__tag', text: f.tag }) : null]),
         el('p', { class: 'feature__desc', text: f.description }),
       ]),
+    ])));
+  }
+
+  #renderRaceTraits(traits) {
+    const key = traits.map((t) => `${t.name}${t.tag}${t.description}`).join('|');
+    if (!this.#shouldRebuild('race-traits', key)) return;
+
+    this.#q('[data-list="race-traits"]').replaceChildren(...traits.map((t) => el('li', { class: 'feature feature--race' }, [
+      el('span', { class: 'feature__level', text: pick('Razza', 'Race') }),
+      el('div', {}, [
+        el('div', { class: 'feature__name' }, [t.name, t.tag ? el('span', { class: 'feature__tag', text: t.tag }) : null]),
+        el('p', { class: 'feature__desc', text: t.description }),
+      ]),
+    ])));
+  }
+
+  /** Menu per le lingue a scelta (razza e background); quelle già note non si ripropongono. */
+  #renderLanguageSlots(slots) {
+    const key = slots.map((s) => `${s.key}:${s.duplicate}:${s.options.map((o) => o.value).join(',')}`).join('|');
+    if (!this.#shouldRebuild('language-slots', key)) return;
+
+    this.#q('[data-list="language-slots"]').replaceChildren(...slots.map((slot, i) => el('label', { class: 'field' }, [
+      el('span', { class: 'field__label', text: `${pick('Lingua a scelta', 'Language of your choice')} ${i + 1}` }),
+      el('select', { 'aria-invalid': slot.duplicate ? 'true' : null, dataset: { bind: `languages.${slot.key}` } }, [
+        el('option', { value: '', text: '—' }),
+        ...slot.options.map((o) => el('option', { value: o.value, text: o.label })),
+      ]),
+      slot.duplicate ? el('small', {
+        class: 'field__error', role: 'status',
+        text: pick('Già conosciuta: scegline un\'altra.', 'Already known: pick another.'),
+      }) : null,
     ])));
   }
 
