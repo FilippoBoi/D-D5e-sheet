@@ -70,8 +70,8 @@ export class CharacterView {
    * @param {Array<{id:string,name:string}>} catalogs.classes
    * @param {string[]} catalogs.alignments
    */
-  build({ abilities, skills, armors, armorCategories, classes, races, alignments }) {
-    this.#catalogs = { abilities, skills, armors, armorCategories, classes, races, alignments };
+  build({ abilities, skills, armors, armorCategories, classes, races, backgrounds, alignments }) {
+    this.#catalogs = { abilities, skills, armors, armorCategories, classes, races, backgrounds, alignments };
     const shortOf = Object.fromEntries(abilities.map((a) => [a.id, loc(a, 'short')]));
     // In inglese le abilità vanno riordinate alfabeticamente (l'elenco di base è in ordine italiano).
     const sortedSkills = getLang() === 'it'
@@ -83,6 +83,10 @@ export class CharacterView {
     this.#q('[data-options="races"]').replaceChildren(
       el('option', { value: '', text: '—' }),
       ...races.map((r) => el('option', { value: r.id, text: loc(r) })),
+    );
+    this.#q('[data-options="backgrounds"]').replaceChildren(
+      el('option', { value: '', text: pick('Personalizzato', 'Custom') }),
+      ...backgrounds.map((b) => el('option', { value: b.id, text: loc(b) })),
     );
     this.#q('[data-options="classes"]').replaceChildren(
       ...classes.map((c) => el('option', { value: c.id, text: loc(c) })),

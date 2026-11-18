@@ -11,6 +11,7 @@ import {
 } from '../data/armors.js';
 import { CLASS_STARTING, getClass } from '../data/classes.js';
 import { feetToMeters, getRace } from '../data/races.js';
+import { getBackground } from '../data/backgrounds.js';
 import { getClassFeatures } from '../data/classFeatures.js';
 import { getClassResources } from '../data/classResources.js';
 import { SKILLS } from '../data/skills.js';
@@ -62,6 +63,7 @@ export function deriveStats(state) {
   const { level } = state.info;
   const profBonus = proficiencyBonus(level);
   const race = getRace(state.info.raceId);
+  const background = getBackground(state.info.backgroundId);
   const classStart = CLASS_STARTING[cls.id];
 
   // Scelte di razza: caratteristiche (+bonus a due diverse, esclusioni), abilità, opzione singola.
@@ -72,6 +74,7 @@ export function deriveStats(state) {
     : [];
   const racialSkills = new Set([
     ...(race?.skills ?? []),
+    ...(background?.skills ?? []),
     ...(race?.skillChoice ? uniqueValid([state.info.raceChoices.skill1, state.info.raceChoices.skill2]) : []),
   ]);
 
@@ -178,6 +181,15 @@ export function deriveStats(state) {
       darkvision: race.darkvisionFt ? `${feetToMeters(race.darkvisionFt)} m` : pick('Nessuna', 'None'),
       choices: raceChoices,
     } : null,
+    background: {
+      isCustom: !background,
+      name: background ? loc(background) : '',
+      skills: background ? background.skills.map(skillName).join(', ') : '',
+      tools: background ? (loc(background, 'tools') || pick('Nessuno', 'None')) : '',
+      languages: background ? (loc(background, 'languages') || pick('Nessuna', 'None')) : '',
+      equipment: background ? loc(background, 'equipment') : '',
+      feature: background ? loc(background, 'feature') : '',
+    },
     classInfo: {
       armor: loc(classStart, 'armor') || pick('Nessuna', 'None'),
       weapons: loc(classStart, 'weapons'),

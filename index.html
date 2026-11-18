@@ -7,6 +7,9 @@
   <meta name="theme-color" content="#101416">
   <!-- I link di invito contengono un token: non va mai inviato come Referer ad altri siti -->
   <meta name="referrer" content="no-referrer">
+  <!-- Il Master resta collegato con un token nel browser: la pagina carica solo i propri file e parla solo con
+       sé stessa e con Supabase (https://*.supabase.co). Se il progetto usa un dominio personalizzato, aggiungilo a connect-src. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'none'; form-action 'none'">
   <title>Scheda Personaggio D&amp;D 5E</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23BF2215' d='M16 1 29 8.5v15L16 31 3 23.5v-15z'/%3E%3Cpath fill='%23101416' d='M16 7l7 12H9z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/styles.css">
@@ -55,10 +58,70 @@
 
   <main class="sheet" id="sheet">
 
-    <!-- 1. COMBATTIMENTO -->
-    <details class="panel" data-panel="combat" open>
+    <!-- 1. INFORMAZIONI GENERALI -->
+    <details class="panel" data-panel="info" open>
       <summary class="panel__header">
         <span class="panel__index">1</span>
+        <h2>Informazioni Generali &amp; Classe</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div class="grid grid--3">
+          <label class="field"><span class="field__label">Nome personaggio</span>
+            <input type="text" data-bind="info.name" autocomplete="off" placeholder="Es. Thalia Corvoscuro"></label>
+          <label class="field"><span class="field__label">Giocatore</span>
+            <input type="text" data-bind="info.player" autocomplete="off"></label>
+          <label class="field"><span class="field__label">Razza</span>
+            <select data-bind="info.raceId" data-options="races"></select></label>
+          <label class="field"><span class="field__label">Background</span>
+            <select data-bind="info.backgroundId" data-options="backgrounds"></select></label>
+          <label class="field" data-show-if="background.isCustom"><span class="field__label">Background personalizzato</span>
+            <input type="text" data-bind="info.background" autocomplete="off" placeholder="Es. Accolito"></label>
+          <label class="field"><span class="field__label">Allineamento</span>
+            <select data-bind="info.alignment" data-options="alignments"><option value="">—</option></select></label>
+          <label class="field"><span class="field__label">Classe</span>
+            <select data-bind="info.classId" data-options="classes"></select></label>
+        </div>
+        <div class="origin" data-show-if="race">
+          <p class="origin__title"><strong data-out="race.name"></strong> · <span data-out="className"></span></p>
+          <dl class="origin__list">
+            <div><dt>Bonus razziali</dt><dd data-out="race.bonuses"></dd></div>
+            <div><dt>Lingue</dt><dd data-out="race.languages"></dd></div>
+            <div><dt>Scurovisione</dt><dd data-out="race.darkvision"></dd></div>
+            <div><dt>Tratti</dt><dd data-out="race.traits"></dd></div>
+            <div><dt>Armature</dt><dd data-out="classInfo.armor"></dd></div>
+            <div><dt>Armi</dt><dd data-out="classInfo.weapons"></dd></div>
+            <div><dt>Strumenti</dt><dd data-out="classInfo.tools"></dd></div>
+            <div><dt>Abilità di classe</dt><dd data-out="classInfo.skillChoice"></dd></div>
+          </dl>
+          <div class="grid grid--3 origin__choices" data-list="race-choices" data-show-if="race.choices.length"></div>
+        </div>
+        <div class="origin" data-show-if="!background.isCustom">
+          <p class="origin__title"><strong data-out="background.name"></strong> · <span data-out="background.feature"></span></p>
+          <dl class="origin__list">
+            <div><dt>Competenze in abilità</dt><dd data-out="background.skills"></dd></div>
+            <div><dt>Strumenti</dt><dd data-out="background.tools"></dd></div>
+            <div><dt>Lingue</dt><dd data-out="background.languages"></dd></div>
+            <div><dt>Equipaggiamento</dt><dd data-out="background.equipment"></dd></div>
+          </dl>
+        </div>
+        <div class="grid grid--3 grid--stats">
+          <label class="field"><span class="field__label">Livello</span>
+            <input type="number" data-bind="info.level" min="1" max="20" inputmode="numeric"></label>
+          <div class="stat"><span class="stat__label">Bonus competenza</span><output class="stat__value" data-out="profBonus" data-format="mod"></output></div>
+          <div class="stat"><span class="stat__label">Dado vita</span><output class="stat__value" data-out="hitDie"></output></div>
+        </div>
+        <div class="choices" data-show-if="hasClassChoices">
+          <h3 class="subhead">Scelte di classe</h3>
+          <div class="grid grid--3 choices__list" data-list="class-choices"></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- 2. COMBATTIMENTO -->
+    <details class="panel" data-panel="combat" open>
+      <summary class="panel__header">
+        <span class="panel__index">2</span>
         <h2>Combattimento &amp; Punti Ferita</h2>
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
@@ -111,10 +174,10 @@
       </div>
     </details>
 
-    <!-- 2. CARATTERISTICHE -->
+    <!-- 3. CARATTERISTICHE -->
     <details class="panel" data-panel="abilities" open>
       <summary class="panel__header">
-        <span class="panel__index">2</span>
+        <span class="panel__index">3</span>
         <h2>Caratteristiche &amp; Tiri Salvezza</h2>
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
@@ -126,10 +189,10 @@
       </div>
     </details>
 
-    <!-- 3. ABILITÀ -->
+    <!-- 4. ABILITÀ -->
     <details class="panel" data-panel="skills" open>
       <summary class="panel__header">
-        <span class="panel__index">3</span>
+        <span class="panel__index">4</span>
         <h2>Abilità</h2>
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
@@ -143,55 +206,6 @@
         <ul class="checklist checklist--2" data-list="skills"></ul>
         <div class="grid grid--3 grid--stats">
           <div class="stat"><span class="stat__label">Saggezza (Percezione) passiva</span><output class="stat__value" data-out="passivePerception"></output></div>
-        </div>
-      </div>
-    </details>
-
-    <!-- 4. INFORMAZIONI GENERALI -->
-    <details class="panel" data-panel="info">
-      <summary class="panel__header">
-        <span class="panel__index">4</span>
-        <h2>Informazioni Generali &amp; Classe</h2>
-        <span class="panel__chevron" aria-hidden="true"></span>
-      </summary>
-      <div class="panel__body">
-        <div class="grid grid--3">
-          <label class="field"><span class="field__label">Nome personaggio</span>
-            <input type="text" data-bind="info.name" autocomplete="off" placeholder="Es. Thalia Corvoscuro"></label>
-          <label class="field"><span class="field__label">Giocatore</span>
-            <input type="text" data-bind="info.player" autocomplete="off"></label>
-          <label class="field"><span class="field__label">Razza</span>
-            <select data-bind="info.raceId" data-options="races"></select></label>
-          <label class="field"><span class="field__label">Background</span>
-            <input type="text" data-bind="info.background" autocomplete="off" placeholder="Es. Accolito"></label>
-          <label class="field"><span class="field__label">Allineamento</span>
-            <select data-bind="info.alignment" data-options="alignments"><option value="">—</option></select></label>
-          <label class="field"><span class="field__label">Classe</span>
-            <select data-bind="info.classId" data-options="classes"></select></label>
-        </div>
-        <div class="origin" data-show-if="race">
-          <p class="origin__title"><strong data-out="race.name"></strong> · <span data-out="className"></span></p>
-          <dl class="origin__list">
-            <div><dt>Bonus razziali</dt><dd data-out="race.bonuses"></dd></div>
-            <div><dt>Lingue</dt><dd data-out="race.languages"></dd></div>
-            <div><dt>Scurovisione</dt><dd data-out="race.darkvision"></dd></div>
-            <div><dt>Tratti</dt><dd data-out="race.traits"></dd></div>
-            <div><dt>Armature</dt><dd data-out="classInfo.armor"></dd></div>
-            <div><dt>Armi</dt><dd data-out="classInfo.weapons"></dd></div>
-            <div><dt>Strumenti</dt><dd data-out="classInfo.tools"></dd></div>
-            <div><dt>Abilità di classe</dt><dd data-out="classInfo.skillChoice"></dd></div>
-          </dl>
-          <div class="grid grid--3 origin__choices" data-list="race-choices" data-show-if="race.choices.length"></div>
-        </div>
-        <div class="grid grid--3 grid--stats">
-          <label class="field"><span class="field__label">Livello</span>
-            <input type="number" data-bind="info.level" min="1" max="20" inputmode="numeric"></label>
-          <div class="stat"><span class="stat__label">Bonus competenza</span><output class="stat__value" data-out="profBonus" data-format="mod"></output></div>
-          <div class="stat"><span class="stat__label">Dado vita</span><output class="stat__value" data-out="hitDie"></output></div>
-        </div>
-        <div class="choices" data-show-if="hasClassChoices">
-          <h3 class="subhead">Scelte di classe</h3>
-          <div class="grid grid--3 choices__list" data-list="class-choices"></div>
         </div>
       </div>
     </details>

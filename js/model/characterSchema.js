@@ -10,6 +10,7 @@ import { ARMOR_IDS } from '../data/armors.js';
 import { CLASS_IDS, DEFAULT_CLASS_ID, getClass } from '../data/classes.js';
 import { NO_RACE_ID, RACE_IDS } from '../data/races.js';
 import { allowedValuesForKey, defaultChoiceValues, MAX_CHOICE_TEXT } from '../data/classChoices/index.js';
+import { BACKGROUND_IDS, NO_BACKGROUND_ID } from '../data/backgrounds.js';
 import { SKILLS } from '../data/skills.js';
 import { normalizeClassChoices } from './classChoices.js';
 const SKILL_IDS = SKILLS.map((s) => s.id);
@@ -63,7 +64,7 @@ export function createDefaultCharacter() {
   return {
     version: SCHEMA_VERSION,
     info: {
-      name: '', player: '', raceId: NO_RACE_ID, background: '', alignment: '',
+      name: '', player: '', raceId: NO_RACE_ID, background: '', backgroundId: NO_BACKGROUND_ID, alignment: '',
       classId: DEFAULT_CLASS_ID, level: 1,
       raceChoices: { ability1: '', ability2: '', skill1: '', skill2: '', option: '' },
       classChoices: defaultChoiceValues(),
@@ -97,6 +98,7 @@ export function createDefaultCharacter() {
 const RULES = [
   [/^info\.level$/, (v) => clampInt(v, 1, 20)],
   [/^info\.classId$/, (v) => (CLASS_IDS.includes(v) ? v : undefined)],
+  [/^info\.backgroundId$/, (v) => (v === NO_BACKGROUND_ID || BACKGROUND_IDS.includes(v) ? v : undefined)],
   [/^info\.raceId$/, (v) => (v === NO_RACE_ID || RACE_IDS.includes(v) ? v : undefined)],
   [/^info\.raceChoices\.ability\d$/, (v) => (v === '' || ABILITY_IDS.includes(v) ? v : undefined)],
   [/^(info\.raceChoices|classSkills)\.skill\d$/, (v) => (v === '' || SKILL_IDS.includes(v) ? v : undefined)],
