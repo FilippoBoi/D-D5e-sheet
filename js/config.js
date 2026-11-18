@@ -9,8 +9,8 @@
  * ammettono solo chi presenta un token valido. Non inserire MAI la chiave "service_role".
  */
 export const REMOTE_CONFIG = Object.freeze({
-  url: '',     // es. 'https://abcdefgh.supabase.co'
-  anonKey: '', // chiave "anon" / "publishable" del progetto
+  url: 'https://ohrscqkvkfvmewryybra.supabase.co',
+  anonKey: 'sb_publishable_HUxzL23o2BxwY10wH907PA_z1YtFMnC', // chiave pubblica (publishable)
 });
 
 export const isRemoteConfigured = (config = REMOTE_CONFIG) => Boolean(config.url && config.anonKey);
