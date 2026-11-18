@@ -90,6 +90,8 @@ test('i valori derivati sono tradotti, lo stato salvato no', () => {
   assert.equal(english.ac, italian.ac); // i numeri non dipendono dalla lingua
 });
 
+const ITALIAN_WORDS = /\b(del|della|dello|dei|delle|di|il|lo|la|le|sempre|che|con|una?|ai|alla)\b/;
+
 test('scelte di classe: ogni classe, scelta e opzione ha etichetta, descrizione e privilegi in inglese', () => {
   for (const [classId, defs] of Object.entries(CLASS_CHOICES)) {
     for (const def of defs) {
@@ -102,6 +104,9 @@ test('scelte di classe: ogni classe, scelta e opzione ha etichetta, descrizione 
         if (o.description) assert.ok(o.descriptionEn, `${at}.${o.value}: descrizione`);
         for (const f of o.features) {
           assert.ok(f.name && f.nameEn && f.description && f.descriptionEn, `${at}.${o.value}@${f.level}: privilegio`);
+          // Tuple [livello, nome, descrizione, nameEn, descriptionEn]: un campo italiano finito in uno inglese si nota dalle parole.
+          assert.doesNotMatch(`${f.nameEn} ${f.descriptionEn}`, ITALIAN_WORDS, `${at}.${o.value}@${f.level}: testo italiano nei campi inglesi`);
+          assert.notEqual(f.description, f.nameEn, `${at}.${o.value}@${f.level}: campi scambiati`);
         }
       }
     }

@@ -332,7 +332,8 @@ export class CharacterView {
       const previous = this.#choiceNodes.get(g.key);
       wanted.set(g.key, previous?.signature === signature ? previous : { signature, node: this.#buildChoice(g) });
     }
-    for (const [key, entry] of this.#choiceNodes) if (!wanted.has(key)) entry.node.remove();
+    // Via i nodi che non servono più: scelte sparite o ricostruite (stessa chiave, struttura diversa).
+    for (const [key, entry] of this.#choiceNodes) if (wanted.get(key)?.node !== entry.node) entry.node.remove();
     this.#choiceNodes = wanted;
     let cursor = container.firstChild;
     for (const { node } of wanted.values()) {

@@ -7,7 +7,8 @@ import { CLASS_CHOICES, choiceCount, defaultChoiceValues, isListType } from '../
 import { CLASS_IDS } from '../js/data/classes.js';
 import { SKILLS } from '../js/data/skills.js';
 import { setLang } from '../js/i18n/i18n.js';
-import { computeArmorClass, suggestedMaxHp } from '../js/model/calculations.js';
+import { computeArmorClass, spellSlotsFor, suggestedMaxHp } from '../js/model/calculations.js';
+import { getClassResources } from '../js/data/classResources.js';
 
 afterEach(() => setLang('it'));
 
@@ -78,7 +79,7 @@ test('stato: default presente e schede vecchie senza classChoices si caricano', 
   const state = normalizeCharacter(old);
   assert.equal(state.info.name, 'Vecchio');
   assert.deepEqual(state.info.classChoices, defaultChoiceValues());
-  assert.equal(new CharacterModel(old).getDerived().classChoices.length, 1);
+  assert.equal(new CharacterModel(old).getDerived().classChoices.length, 2, 'Maestria (1°) e Archetipo (3°)');
 });
 
 test('validazione: solo valori della lista, nessun duplicato, scelte di altre classi scartate', () => {
@@ -333,4 +334,153 @@ test('privilegi: le abilità scelte si aggiungono al privilegio di dominio, senz
   assert.equal(rows.length, 1);
   assert.match(rows[0].description, /Scelte: Arcano/);
   assert.equal(model.getDerived().features.some((f) => f.name.includes('abilità')), false);
+});
+
+// ------------------------------------------------------------------ fase B: sottoclassi
+
+const subclassDef = (classId) => CLASS_CHOICES[classId].find((d) => d.subclass);
+
+test('sottoclassi: ogni classe ha la sua, al livello giusto, con privilegi a partire da quel livello', () => {
+  const expected = {
+    barbarian: [3, 2], bard: [3, 2], cleric: [1, 7], druid: [2, 2], fighter: [3, 3], monk: [3, 3],
+    paladin: [3, 3], ranger: [3, 2], rogue: [3, 3], sorcerer: [1, 2], warlock: [1, 3], wizard: [2, 8],
+  };
+  for (const [classId, [minLevel, count]] of Object.entries(expected)) {
+    const def = subclassDef(classId);
+    assert.ok(def, classId);
+    assert.equal(def.minLevel, minLevel, `${classId}: livello`);
+    assert.equal(def.options.length, count, `${classId}: numero di sottoclassi`);
+    for (const o of def.options) {
+      assert.ok(o.features.length >= 3, `${classId}.${o.value}`);
+      assert.ok(o.features.every((f) => f.level >= minLevel), `${classId}.${o.value}: privilegio prima della scelta`);
+      assert.ok(o.features.some((f) => f.level === minLevel), `${classId}.${o.value}: nessun privilegio al livello di scelta`);
+    }
+  }
+});
+
+test('sottoclassi: la scelta compare solo dal suo livello e nessun privilegio generico resta a livello 20', () => {
+  for (const [classId, defs] of Object.entries(CLASS_CHOICES)) {
+    const def = defs.find((d) => d.subclass);
+    const model = make({ classId, level: def.minLevel - 1 || 1 });
+    if (def.minLevel > 1) assert.equal(model.getDerived().classChoices.some((g) => g.key === 'subclass'), false, `${classId} sotto livello`);
+    model.set('info.level', 20);
+    for (const o of def.options) {
+      model.set('info.classChoices.subclass', o.value);
+      const features = model.getDerived().features;
+      assert.ok(!features.some((f) => /^Privilegio (del|della|dell')/.test(f.name)), `${classId}.${o.value}: generico rimasto`);
+      assert.ok(features.some((f) => f.tag), `${classId}.${o.value}: privilegi della sottoclasse`);
+    }
+  }
+});
+
+test('Stile di Combattimento del Paladino e del Ranger dal 2° livello, con Difesa che dà +1 CA', () => {
+  for (const [classId, styles] of [['paladin', ['defense', 'dueling', 'greatWeapon', 'protection']], ['ranger', ['archery', 'defense', 'dueling', 'twoWeapon']]]) {
+    const model = make({ classId, level: 1 }, { equipment: { armorId: 'chainMail' } });
+    assert.equal(model.getDerived().classChoices.some((g) => g.key === 'fightingStyle'), false);
+    model.set('info.level', 2);
+    const group = model.getDerived().classChoices.find((g) => g.key === 'fightingStyle');
+    assert.deepEqual(group.options.map((o) => o.value), styles);
+    const before = model.getDerived().ac;
+    model.set('info.classChoices.fightingStyle', 'defense');
+    assert.equal(model.getDerived().ac, before + 1, classId);
+    assert.equal(model.set('info.classChoices.fightingStyle', styles.includes('archery') ? 'greatWeapon' : 'archery'), false, 'stile non ammesso dalla classe');
+  }
+});
+
+test('incantatori a un terzo: tabella degli slot del PHB', () => {
+  const rows = { 2: [], 3: [2], 4: [3], 6: [3], 7: [4, 2], 9: [4, 2], 10: [4, 3], 13: [4, 3, 2], 16: [4, 3, 3], 19: [4, 3, 3, 1], 20: [4, 3, 3, 1] };
+  for (const [level, slots] of Object.entries(rows)) {
+    assert.deepEqual(spellSlotsFor('third', Number(level)).map((s) => s.max), slots, `livello ${level}`);
+  }
+});
+
+test('Cavaliere Mistico e Mistificatore Arcano: incantatori a un terzo con INT dal 3° livello', () => {
+  for (const [classId, value] of [['fighter', 'eldritchKnight'], ['rogue', 'arcaneTrickster']]) {
+    const model = make({ classId, level: 3 }, { abilities: { int: 16 } });
+    assert.equal(model.getDerived().spellcasting.isCaster, false, `${classId} senza sottoclasse`);
+    model.set('info.classChoices.subclass', value);
+    let sp = model.getDerived().spellcasting;
+    assert.equal(sp.isCaster, true);
+    assert.equal(sp.abilityName, 'Intelligenza');
+    assert.equal(sp.dc, 8 + 2 + 3, 'CD = 8 + competenza + INT');
+    assert.equal(sp.attack, 2 + 3);
+    assert.deepEqual(sp.slots.map((s) => s.max), [2]);
+    model.set('info.level', 7);
+    assert.deepEqual(model.getDerived().spellcasting.slots.map((s) => s.max), [4, 2]);
+    model.set('info.classChoices.subclass', classId === 'fighter' ? 'champion' : 'thief');
+    assert.equal(model.getDerived().spellcasting.isCaster, false, 'altra sottoclasse: nessuna magia');
+  }
+  const low = make({ classId: 'fighter', level: 2 });
+  low.set('info.classChoices.subclass', 'eldritchKnight'); // sotto il 3°: la scelta non esiste ancora, ma il valore è accettato
+  assert.equal(low.getDerived().spellcasting.isCaster, false);
+});
+
+test('Maestro di Battaglia: dadi di superiorità e CD delle manovre', () => {
+  const dice = (level, mods) => {
+    const model = make({ classId: 'fighter', level }, { abilities: mods });
+    model.set('info.classChoices.subclass', 'battleMaster');
+    const r = model.getDerived().resources;
+    return [r.find((x) => x.label === 'Dadi di superiorità')?.value, r.find((x) => x.label === 'CD delle manovre')?.value];
+  };
+  assert.deepEqual(dice(3, { str: 16 }), ['4 × d8', String(8 + 2 + 3)]);
+  assert.deepEqual(dice(7, { dex: 18, str: 10 }), ['5 × d8', String(8 + 3 + 4)], 'max(FOR, DES)');
+  assert.deepEqual(dice(10, {}), ['5 × d10', String(8 + 4 + 0)]);
+  assert.deepEqual(dice(6, {}), ['4 × d8', String(8 + 3)], 'ancora 4 dadi al 6°');
+  assert.deepEqual(dice(14, {}), ['5 × d10', String(8 + 5)], 'ancora 5 dadi al 14°');
+  assert.deepEqual(dice(15, {}), ['6 × d10', String(8 + 5)]);
+  assert.deepEqual(dice(17, {}), ['6 × d10', String(8 + 6)], 'd10 fino al 17°');
+  assert.deepEqual(dice(18, {}), ['6 × d12', String(8 + 6)]);
+  const champion = make({ classId: 'fighter', level: 10 });
+  champion.set('info.classChoices.subclass', 'champion');
+  assert.equal(champion.getDerived().resources.some((x) => x.label === 'Dadi di superiorità'), false);
+  assert.equal(make({ classId: 'fighter', level: 2 }).getDerived().resources.some((x) => x.label === 'Dadi di superiorità'), false);
+  assert.deepEqual(getClassResources('fighter', 3, { str: 0, dex: 0 }).map((r) => r.label).includes('Dadi di superiorità'), false, 'senza contesto non compare');
+});
+
+test('Circolo della Luna: GS massimo della Forma Selvatica', () => {
+  const cr = (level, subclass) => {
+    const model = make({ classId: 'druid', level });
+    if (subclass) model.set('info.classChoices.subclass', subclass);
+    return model.getDerived().resources.find((r) => r.label === 'Forma Selvatica').value;
+  };
+  assert.match(cr(2, 'moon'), /GS max 1$/);
+  assert.match(cr(5, 'moon'), /GS max 1$/);
+  assert.match(cr(6, 'moon'), /GS max 2$/);
+  assert.match(cr(11, 'moon'), /GS max 3$/);
+  assert.match(cr(18, 'moon'), /GS max 6$/);
+  assert.match(cr(8, 'land'), /GS max 1$/, 'Terra: tabella normale');
+  assert.match(cr(2, null), /GS max 1\/4$/);
+});
+
+test('Sapienza: tre abilità a scelta diventano competenze', () => {
+  const model = make({ classId: 'bard', level: 3 });
+  assert.equal(model.getDerived().classChoices.some((g) => g.key === 'loreSkills'), false);
+  model.set('info.classChoices.subclass', 'lore');
+  for (const s of ['arcana', 'history', 'stealth']) assert.equal(model.toggleChoice('loreSkills', s), true);
+  assert.equal(model.toggleChoice('loreSkills', 'nature'), false, 'solo tre');
+  assert.equal(model.getDerived().skills.stealth, 2, 'competenza +2');
+  assert.equal(model.getDerived().skills.nature, 1, 'Factotum: metà competenza');
+  model.set('info.classChoices.subclass', 'valor');
+  assert.deepEqual(model.get('info.classChoices.loreSkills'), [], 'cambiando collegio si azzerano');
+  assert.equal(model.getDerived().skills.stealth, 1);
+});
+
+test('Circolo della Terra: il terreno esiste solo per la Terra e si azzera cambiando circolo', () => {
+  const model = make({ classId: 'druid', level: 2 });
+  assert.equal(model.getDerived().classChoices.some((g) => g.key === 'landTerrain'), false);
+  model.set('info.classChoices.subclass', 'land');
+  assert.equal(model.set('info.classChoices.landTerrain', 'underdark'), true);
+  assert.equal(model.set('info.classChoices.landTerrain', 'volcano'), false);
+  const row = model.getDerived().features.find((f) => f.name === 'Incantesimi del Circolo');
+  assert.match(row.description, /Scelta: Sottosuolo/);
+  model.set('info.classChoices.subclass', 'moon');
+  assert.equal(model.get('info.classChoices.landTerrain'), '');
+});
+
+test('cambiare sottoclasse non tocca le scelte indipendenti (stile di combattimento)', () => {
+  const model = make({ classId: 'fighter', level: 3 });
+  model.set('info.classChoices.fightingStyle', 'defense');
+  model.set('info.classChoices.subclass', 'battleMaster');
+  model.set('info.classChoices.subclass', 'champion');
+  assert.equal(model.get('info.classChoices.fightingStyle'), 'defense');
 });
