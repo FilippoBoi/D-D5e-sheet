@@ -9,7 +9,7 @@ const ASI_DESC = 'Increase one ability by 2 or two abilities by 1 (max 20), or c
 const asi = (level) => [level, ASI_NAME, ASI_DESC];
 
 /** Privilegio generico di sottoclasse. */
-const sub = (level, name, label) => [level, name, `You gain a new feature from your ${label}.`];
+const sub = (level, name, label) => [level, name, `You gain a new feature from your ${label}.`, 'sub'];
 
 export const RAW_FEATURES_EN = {
   barbarian: [

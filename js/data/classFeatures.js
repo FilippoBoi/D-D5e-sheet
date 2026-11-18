@@ -14,7 +14,7 @@ const ASI_DESC = 'Aumenta una caratteristica di 2 o due caratteristiche di 1 (ma
 const asi = (level) => [level, ASI_NAME, ASI_DESC];
 
 /** Privilegio generico di sottoclasse. */
-const sub = (level, name, label) => [level, name, `Ottieni un nuovo privilegio del tuo ${label}.`];
+const sub = (level, name, label) => [level, name, `Ottieni un nuovo privilegio del tuo ${label}.`, 'sub'];
 
 const RAW_FEATURES = {
   barbarian: [
@@ -282,7 +282,9 @@ const freezeFeatures = (raw) => Object.freeze(
   Object.fromEntries(
     Object.entries(raw).map(([classId, list]) => [
       classId,
-      Object.freeze(list.map(([level, name, description]) => Object.freeze({ level, name, description }))),
+      Object.freeze(list.map(([level, name, description, kind]) => Object.freeze(
+        kind === 'sub' ? { level, name, description, generic: true } : { level, name, description },
+      ))),
     ]),
   ),
 );
@@ -294,10 +296,32 @@ export { RAW_FEATURES };
 /**
  * Privilegi sbloccati da una classe fino al livello indicato (incluso),
  * nella lingua corrente.
+ *
+ * Con `subclassFeatures` (sottoclasse nota) i privilegi generici "del Cammino / Dominio..."
+ * sono sostituiti da quelli dell'opzione scelta. Le `picks` sostituiscono o integrano la riga
+ * di classe con lo stesso nome (es. "Stile di Combattimento: Difesa"); se non c'è, si aggiungono.
  * @param {string} classId
  * @param {number} level
+ * @param {{ subclassFeatures?: Array | null, picks?: Array }} [choices]
  */
-export function getClassFeatures(classId, level) {
+export function getClassFeatures(classId, level, { subclassFeatures = null, picks = [] } = {}) {
   const source = getLang() === 'en' ? CLASS_FEATURES_EN : CLASS_FEATURES;
-  return (source[classId] ?? []).filter((f) => f.level <= level);
+  const rows = (source[classId] ?? [])
+    .filter((f) => f.level <= level && !(subclassFeatures && f.generic))
+    .map((f) => ({ ...f }));
+  if (subclassFeatures) rows.push(...subclassFeatures.filter((f) => f.level <= level));
+  const used = new Set();
+  for (const p of picks) {
+    const target = p.replaces
+      ? rows.find((r) => r.level === p.level && r.name === p.replaces && !used.has(r))
+      : null;
+    if (target) {
+      used.add(target);
+      if (p.append) target.description = `${target.description} ${p.description}`;
+      else { target.name = p.name; target.description = p.description; }
+    } else {
+      rows.push({ level: p.level, name: p.name, description: p.description });
+    }
+  }
+  return rows.sort((a, b) => a.level - b.level);
 }
