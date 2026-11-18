@@ -1,10 +1,10 @@
 /**
  * Sincronizzazione di UNA scheda con il database condiviso.
  *
- * Strategia: si scambiano solo le *sezioni* (chiavi di primo livello: info, hp,
- * weapons...) cambiate, e il server le fonde nel documento. Due persone che
- * toccano sezioni diverse non si pestano i piedi; se toccano la stessa vince
- * l'ultimo che salva.
+ * Strategia: si scambiano solo i *campi* (foglie del documento) cambiati e il
+ * server li fonde in profondità. Due persone che toccano campi diversi non si
+ * pestano i piedi, nemmeno dentro la stessa sezione (PF del Master + velocità del
+ * giocatore); se toccano lo stesso campo vince l'ultimo che salva.
  *
  * Tre fotografie del documento:
  *   base       — ultimo stato locale concordato col server
@@ -12,14 +12,14 @@
  *   (locale)   — quello che l'utente ha adesso, letto con getLocal()
  *
  * Ogni ciclo di polling prima invia le modifiche locali (così riprova da sola
- * dopo un errore di rete) e poi legge quelle degli altri. Le sezioni cambiate
- * altrove si applicano solo se localmente non sono state toccate.
+ * dopo un errore di rete) e poi legge quelle degli altri. I campi cambiati
+ * altrove si applicano solo se localmente non sono stati toccati.
  *
- * Eventi:  'remote' ({changes, updatedBy})  sezioni da caricare nel Model
+ * Eventi:  'remote' ({changes, updatedBy})  parziale del documento da fondere nel Model
  *          'state'  ('online' | 'offline' | 'revoked')
  */
 import { EventEmitter } from '../core/EventEmitter.js';
-import { deepEqual, diffSections } from './diff.js';
+import { applicableChanges, deepMerge, diffDeep } from './diff.js';
 
 export class CharacterSync extends EventEmitter {
   #api;
@@ -129,8 +129,8 @@ export class CharacterSync extends EventEmitter {
   }
 
   async #push(snapshot) {
-    const changes = diffSections(this.#base, snapshot);
-    if (Object.keys(changes).length === 0) return { pushed: false };
+    const changes = diffDeep(this.#base, snapshot);
+    if (changes === undefined) return { pushed: false };
 
     const [row] = (await this.#api.rpc('save_character', {
       p_token: this.#token,
@@ -139,33 +139,28 @@ export class CharacterSync extends EventEmitter {
     })) ?? [];
     if (!row) throw new Error('empty response');
 
-    Object.assign(this.#base, structuredClone(changes));
+    this.#base = deepMerge(this.#base, changes);
     this.#setState('online');
     this.#integrate(row);
     return { pushed: true };
   }
 
+  /** Chiede solo il numero di revisione (pochi byte) e scarica la scheda se è cambiato. */
   async #pull() {
-    const row = await this.#fetch();
+    const revision = await this.#api.rpc('character_revision', { p_token: this.#token, p_character_id: this.#characterId });
     this.#setState('online');
-    if (row.revision !== this.#revision) this.#integrate(row);
+    if (revision === this.#revision) return;
+    this.#integrate(await this.#fetch());
   }
 
-  /** Applica al Model le sezioni cambiate dagli altri e non toccate qui. */
+  /** Applica al Model i campi cambiati dagli altri e non toccati qui. */
   #integrate(row) {
     const remote = row.data ?? {};
-    const local = this.#getLocal();
-    const changes = {};
-    for (const key of Object.keys(remote)) {
-      if (deepEqual(remote[key], this.#remoteDoc[key])) continue;     // invariata sul server
-      if (deepEqual(remote[key], local[key])) continue;               // già uguale qui (es. l'ho scritta io)
-      if (!deepEqual(local[key], this.#base[key])) continue;          // modificata anche qui: vince la mia
-      changes[key] = remote[key];
-    }
+    const changes = applicableChanges(diffDeep(this.#remoteDoc, remote), this.#getLocal(), this.#base);
     this.#remoteDoc = remote;
     this.#revision = row.revision;
-    if (Object.keys(changes).length === 0) return;
-    Object.assign(this.#base, structuredClone(changes));
+    if (changes === undefined) return;
+    this.#base = deepMerge(this.#base, changes);
     this.emit('remote', { changes, updatedBy: row.updated_by });
   }
 }

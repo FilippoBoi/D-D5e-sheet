@@ -59,6 +59,8 @@ export class AuthService {
   /** @type {Session[]} */
   #sessions = [];
   #activeToken = null;
+  /** @type {Record<string, {id: string, label: string}>} */
+  #lastOpened = {};
 
   /**
    * @param {{rpc: Function}} api
@@ -126,8 +128,20 @@ export class AuthService {
 
   /** Dimentica la sessione attiva (non revoca il token: resta valido sul server). */
   logout() {
+    delete this.#lastOpened[this.#activeToken];
     this.#sessions = this.#sessions.filter((s) => s.token !== this.#activeToken);
     this.#activeToken = this.#sessions[0]?.token ?? null;
+    this.#persist();
+  }
+
+  /** Ultima scheda aperta da un admin in questa campagna, per riaprirla dopo il ricaricamento. */
+  get lastOpened() { return this.active ? (this.#lastOpened[this.active.token] ?? null) : null; }
+
+  /** @param {{id: string, label: string} | null} entry */
+  rememberOpened(entry) {
+    if (!this.active) return;
+    if (entry) this.#lastOpened[this.active.token] = { id: String(entry.id), label: String(entry.label ?? '') };
+    else delete this.#lastOpened[this.active.token];
     this.#persist();
   }
 
@@ -150,13 +164,19 @@ export class AuthService {
       if (Array.isArray(saved?.sessions)) {
         this.#sessions = saved.sessions.filter((s) => normalizeToken(s?.token) === s?.token && (s.role === 'admin' || s.role === 'player'));
         this.#activeToken = saved.active ?? null;
+        const last = saved.lastOpened;
+        if (last && typeof last === 'object') {
+          for (const [token, e] of Object.entries(last)) {
+            if (this.#sessions.some((s) => s.token === token) && typeof e?.id === 'string') this.#lastOpened[token] = { id: e.id, label: String(e.label ?? '') };
+          }
+        }
       }
     } catch { /* storage non disponibile o corrotto: si riparte senza sessioni */ }
   }
 
   #persist() {
     try {
-      this.#storage?.setItem(this.#key, JSON.stringify({ sessions: this.#sessions, active: this.#activeToken }));
+      this.#storage?.setItem(this.#key, JSON.stringify({ sessions: this.#sessions, active: this.#activeToken, lastOpened: this.#lastOpened }));
     } catch { /* ignorato di proposito */ }
   }
 }

@@ -9,6 +9,7 @@
  * (sta nella View): decide solo *chi* deve fare *cosa* e *quando*.
  */
 import { detectLang, isSupportedLang, pick, setLang } from '../i18n/i18n.js';
+import { deepMerge } from '../sync/diff.js';
 
 const SAVE_DELAY_MS = 400;
 
@@ -95,11 +96,11 @@ export class CharacterController {
     else sync.push(); // prima che il salvataggio ritardato confronti qualcosa
     sync.on('remote', ({ changes, updatedBy }) => {
       if (this.#remote !== sync) return;
-      this.#model.load({ ...this.#model.toJSON(), ...changes });
+      this.#model.load(deepMerge(this.#model.toJSON(), changes));
       sync.markSynced(this.#model.toJSON());
       this.#view.showStatus(updatedBy === 'admin'
         ? pick('Aggiornata dal Master', 'Updated by the DM')
-        : pick('Aggiornata da un altro giocatore', 'Updated by another player'));
+        : pick('Aggiornata dal giocatore', 'Updated by the player'));
     });
     sync.start();
   }

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { RemoteApi, RemoteError } from '../js/net/RemoteApi.js';
 import { AuthService, buildInviteLink, normalizeToken, readTokenFromUrl, stripTokenFromUrl } from '../js/auth/AuthService.js';
 import { CharacterSync } from '../js/sync/CharacterSync.js';
-import { deepEqual, diffSections } from '../js/sync/diff.js';
+import { applicableChanges, deepEqual, deepMerge, diffDeep } from '../js/sync/diff.js';
 import { isRemoteConfigured } from '../js/config.js';
 
 // ------------------------------------------------------------------ helper
@@ -12,7 +12,7 @@ import { isRemoteConfigured } from '../js/config.js';
 const PLAYER = 'PG-ABCD-EFGH-JKMN';
 const ADMIN = 'ADM-ABCD-EFGH-JKMN';
 
-/** Finto database: stessa semantica delle funzioni SQL (merge per sezione, revisione). */
+/** Finto database: stessa semantica delle funzioni SQL (fusione in profondità, revisione). */
 function fakeServer() {
   const calls = [];
   const state = { data: {}, revision: 0, updatedBy: '', validTokens: new Set([PLAYER, ADMIN]), offline: false };
@@ -25,8 +25,9 @@ function fakeServer() {
     if (fn === 'resolve_token') return [{ role, campaign_id: 'c1', campaign_name: 'Strahd', character_id: role === 'player' ? 'ch1' : null }];
     if (fn === 'create_campaign') return [{ campaign_id: 'c1', campaign_name: args.p_name, admin_token: ADMIN }];
     if (fn === 'get_character') return [{ id: 'ch1', data: structuredClone(state.data), revision: state.revision, updated_by: state.updatedBy }];
+    if (fn === 'character_revision') return state.revision;
     if (fn === 'save_character') {
-      state.data = { ...state.data, ...structuredClone(args.p_changes) };
+      state.data = deepMerge(state.data, args.p_changes);
       state.revision += 1;
       state.updatedBy = role;
       return [{ data: structuredClone(state.data), revision: state.revision, updated_by: role }];
@@ -145,12 +146,35 @@ test('AuthService: sessioni corrotte nello storage vengono scartate', () => {
 
 // -------------------------------------------------------------------- diff
 
-test('diff: ignora l\'ordine delle chiavi e restituisce solo le sezioni cambiate', () => {
+test('diff: deepEqual ignora l\'ordine delle chiavi', () => {
   assert.equal(deepEqual({ a: 1, b: [1, { c: 2 }] }, { b: [1, { c: 2 }], a: 1 }), true);
   assert.equal(deepEqual({ a: [1] }, { a: { 0: 1 } }), false);
   assert.equal(deepEqual(null, {}), false);
-  assert.deepEqual(diffSections({ a: 1, b: { x: 1 } }, { a: 1, b: { x: 2 }, c: 3 }), { b: { x: 2 }, c: 3 });
-  assert.deepEqual(diffSections({ a: 1 }, { a: 1 }), {});
+});
+
+test('diffDeep: restituisce solo le foglie cambiate, con la forma del documento', () => {
+  const base = { combat: { hp: 10, speed: 9 }, weapons: [{ name: 'A' }], notes: { traits: 'x' } };
+  assert.equal(diffDeep(base, structuredClone(base)), undefined);
+  assert.deepEqual(diffDeep(base, { ...base, combat: { hp: 3, speed: 9 } }), { combat: { hp: 3 } });
+  assert.deepEqual(diffDeep(base, { ...base, weapons: [{ name: 'A' }, { name: 'B' }] }), { weapons: [{ name: 'A' }, { name: 'B' }] }, 'gli array si scambiano interi');
+  assert.deepEqual(diffDeep({}, { a: { b: 1 } }), { a: { b: 1 } }, 'documento nuovo: tutto');
+  assert.deepEqual(diffDeep({ a: 1 }, { a: { b: 1 } }), { a: { b: 1 } }, 'da foglia a oggetto');
+});
+
+test('deepMerge: gli oggetti si fondono, array e valori si sostituiscono, l\'input non cambia', () => {
+  const target = { combat: { hp: 3, speed: 9 }, w: [1, 2], n: { a: 1 } };
+  const merged = deepMerge(target, { combat: { speed: 12 }, w: [9], n: null, x: { y: 1 } });
+  assert.deepEqual(merged, { combat: { hp: 3, speed: 12 }, w: [9], n: null, x: { y: 1 } });
+  assert.deepEqual(target, { combat: { hp: 3, speed: 9 }, w: [1, 2], n: { a: 1 } });
+  assert.deepEqual(deepMerge({ a: { b: 1 } }, {}), { a: { b: 1 } });
+});
+
+test('applicableChanges: scarta le foglie uguali o toccate anche in locale', () => {
+  const base = { combat: { hp: 10, speed: 9 } };
+  const remote = { combat: { hp: 3, speed: 12 } };
+  assert.deepEqual(applicableChanges(remote, { combat: { hp: 10, speed: 9 } }, base), remote);
+  assert.deepEqual(applicableChanges(remote, { combat: { hp: 10, speed: 15 } }, base), { combat: { hp: 3 } }, 'la velocità locale vince');
+  assert.equal(applicableChanges(remote, { combat: { hp: 3, speed: 12 } }, base), undefined, 'già uguale');
 });
 
 // ----------------------------------------------------------- CharacterSync
@@ -175,7 +199,7 @@ test('sync: dopo il caricamento non rispedisce ciò che il server già ha', asyn
   assert.equal(server.calls.filter(([fn]) => fn === 'save_character').length, 0);
 });
 
-test('sync: invia solo le sezioni modificate', async () => {
+test('sync: invia solo i campi modificati', async () => {
   const server = fakeServer();
   server.state.data = { info: { name: 'Mario' }, hp: { cur: 5 }, weapons: [] };
   const c = client(server);
@@ -185,13 +209,13 @@ test('sync: invia solo le sezioni modificate', async () => {
   c.local.doc.hp = { cur: 9 };
   assert.deepEqual(await c.sync.push(), { pushed: true });
   const save = server.calls.find(([fn]) => fn === 'save_character');
-  assert.deepEqual(save[1].p_changes, { hp: { cur: 9 } });
+  assert.deepEqual(save[1].p_changes, { hp: { cur: 9 } }, 'solo il campo cambiato, non l\'intera sezione');
   assert.equal(server.state.updatedBy, 'player');
   assert.deepEqual(await c.sync.push(), { pushed: false }, 'secondo invio: niente da mandare');
   assert.equal(c.received.length, 0, 'le proprie modifiche non tornano indietro come "remote"');
 });
 
-test('sync: due persone su sezioni diverse si ritrovano entrambe le modifiche', async () => {
+test('sync: due persone su campi diversi si ritrovano entrambe le modifiche', async () => {
   const server = fakeServer();
   server.state.data = { info: { name: 'Mario' }, hp: { cur: 5 } };
   const player = client(server, PLAYER);
@@ -215,7 +239,42 @@ test('sync: due persone su sezioni diverse si ritrovano entrambe le modifiche', 
   assert.deepEqual(admin.local.doc, server.state.data);
 });
 
-test('sync: se la stessa sezione è stata toccata anche qui, la modifica locale non viene sovrascritta', async () => {
+test('sync: REGRESSIONE — il Master toglie PF mentre il giocatore cambia la velocità nella stessa sezione', async () => {
+  const server = fakeServer();
+  server.state.data = { combat: { hpCurrent: 10, hpMax: 10, speed: 9 } };
+  const dm = client(server, ADMIN, 'ch1');
+  const player = client(server, PLAYER);
+  for (const c of [dm, player]) {
+    c.local.doc = structuredClone((await c.sync.load()).data);
+    c.sync.markSynced(c.local.doc);
+  }
+  dm.local.doc.combat.hpCurrent = 3;      // Master: 10 → 3 PF
+  await dm.sync.push();
+  player.local.doc.combat.speed = 12;     // giocatore, prima che il polling lo aggiorni
+  await player.sync.push();
+
+  assert.deepEqual(server.state.data.combat, { hpCurrent: 3, hpMax: 10, speed: 12 }, 'nessuno dei due perde la modifica');
+  assert.equal(player.local.doc.combat.hpCurrent, 3, 'il giocatore ora vede i PF del Master');
+  await dm.sync.pull();
+  assert.equal(dm.local.doc.combat.speed, 12, 'il Master vede la velocità');
+});
+
+test('sync: il polling chiede solo la revisione finché non cambia nulla', async () => {
+  const server = fakeServer();
+  server.state.data = { hp: { cur: 5 } };
+  const c = client(server);
+  c.local.doc = structuredClone((await c.sync.load()).data);
+  c.sync.markSynced(c.local.doc);
+  server.calls.length = 0;
+  await c.sync.tick(); await c.sync.tick(); await c.sync.tick();
+  assert.deepEqual([...new Set(server.calls.map(([fn]) => fn))], ['character_revision'], 'nessun download della scheda');
+  server.state.data = { hp: { cur: 1 } }; server.state.revision += 1;   // cambia qualcuno
+  await c.sync.tick();
+  assert.ok(server.calls.some(([fn]) => fn === 'get_character'), 'ora scarica');
+  assert.equal(c.local.doc.hp.cur, 1);
+});
+
+test('sync: se lo stesso campo è stato toccato anche qui, la modifica locale non viene sovrascritta', async () => {
   const server = fakeServer();
   server.state.data = { hp: { cur: 5 } };
   const player = client(server, PLAYER);
@@ -229,7 +288,7 @@ test('sync: se la stessa sezione è stata toccata anche qui, la modifica locale 
 
   player.local.doc.hp = { cur: 7 };          // modifica locale non ancora inviata
   await player.sync.pull();
-  assert.equal(player.received.length, 0, 'la mia sezione modificata non viene sostituita');
+  assert.equal(player.received.length, 0, 'il mio campo modificato non viene sostituito');
   assert.deepEqual(player.local.doc.hp, { cur: 7 });
   await player.sync.push();                  // poi invio: vince l'ultimo
   assert.deepEqual(server.state.data.hp, { cur: 7 });
@@ -289,4 +348,26 @@ test('sync: le operazioni sono serializzate (nessun invio in parallelo)', async 
   sync.markSynced({});
   await Promise.all([sync.push(), sync.pull(), sync.tick(), sync.push()]);
   assert.equal(maxActive, 1);
+});
+
+test('AuthService: ricorda l\'ultima scheda aperta dall\'admin, per campagna, e la dimentica al logout', async () => {
+  const { rpc } = fakeServer();
+  const storage = memoryStorage();
+  const auth = new AuthService({ rpc }, storage);
+  await auth.createCampaign('Strahd');
+  assert.equal(auth.lastOpened, null);
+  auth.rememberOpened({ id: 'ch1', label: 'Mario' });
+  assert.deepEqual(auth.lastOpened, { id: 'ch1', label: 'Mario' });
+
+  const reloaded = new AuthService({ rpc }, storage);
+  assert.deepEqual(reloaded.lastOpened, { id: 'ch1', label: 'Mario' }, 'sopravvive al ricaricamento');
+  reloaded.rememberOpened(null);
+  assert.equal(reloaded.lastOpened, null);
+
+  reloaded.rememberOpened({ id: 'ch2', label: 'Lia' });
+  reloaded.logout();
+  assert.equal(new AuthService({ rpc }, storage).lastOpened, null, 'logout: niente resta');
+  // voci orfane (campagna dimenticata) nello storage vengono scartate
+  storage.setItem('dnd5e-character-sheet:sessions', JSON.stringify({ sessions: [], active: null, lastOpened: { [ADMIN]: { id: 'x', label: 'y' } } }));
+  assert.equal(new AuthService({ rpc }, storage).lastOpened, null);
 });

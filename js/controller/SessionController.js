@@ -73,7 +73,10 @@ export class SessionController {
     } else {
       this.#leaveRemote();
       this.#refresh();
-      if (autoOpenPanel || this.#auth.adminSessions.length) await this.#openPanel();
+      // Dopo un ricaricamento si riprende dalla scheda che si stava modificando.
+      const last = autoOpenPanel ? null : this.#auth.lastOpened;
+      if (last) await this.#openCharacter(session.token, last.id, last.label);
+      if (!this.#sync) await this.#openPanel();
     }
   }
 
@@ -87,7 +90,8 @@ export class SessionController {
       remote = await sync.load();
     } catch (error) {
       this.#status(errorText(error));
-      if (error?.isAuthFailure) { this.#auth.logout(); this.#leaveRemote(); }
+      if (error?.isAuthFailure && this.#auth.active?.role === 'admin') this.#auth.rememberOpened(null); // scheda eliminata: resta l'accesso alla campagna
+      else if (error?.isAuthFailure) { this.#auth.logout(); this.#leaveRemote(); }
       return this.#refresh();
     }
 
@@ -112,6 +116,7 @@ export class SessionController {
     this.#openCharacterId = characterId;
     this.#sheetLabel = label;
     this.#characters.attachRemote(sync, data, { upload });
+    if (this.#auth.active?.role === 'admin') this.#auth.rememberOpened({ id: characterId, label });
     this.#view.close();
     this.#refresh();
   }
@@ -126,6 +131,7 @@ export class SessionController {
   #onRevoked() {
     this.#leaveRemote();
     if (this.#auth.active?.role === 'admin') {
+      this.#auth.rememberOpened(null);
       // L'admin ha ancora accesso alla campagna: era la scheda a non esistere più.
       this.#status(pick('Scheda non più disponibile.', 'Sheet no longer available.'));
       this.#openPanel();

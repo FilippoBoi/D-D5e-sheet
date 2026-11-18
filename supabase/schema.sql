@@ -33,7 +33,7 @@ create table if not exists public.characters (
   campaign_id  uuid not null references public.campaigns (id) on delete cascade,
   player_token text not null unique,
   label        text not null default '' check (char_length(label) <= 80),
-  data         jsonb not null default '{}'::jsonb check (octet_length(data::text) <= 262144),
+  data         jsonb not null default '{}'::jsonb check (octet_length(data::text) <= 131072),
   revision     bigint not null default 0,
   updated_by   text not null default '',
   updated_at   timestamptz not null default now(),
@@ -72,13 +72,32 @@ begin
   return result;
 end $$;
 
--- Token non valido: piccola attesa contro i tentativi a raffica, poi errore.
+-- Token non valido. Niente pg_sleep "anti brute force": terrebbe occupata una connessione
+-- del database per ogni tentativo e permetterebbe a chiunque di esaurirle con poche richieste.
+-- La protezione è l'entropia del token (60 bit: 2^60 tentativi).
 create or replace function public._deny()
 returns void language plpgsql as $$
 begin
-  perform pg_sleep(0.4);
   raise exception 'invalid_token';
 end $$;
+
+-- Fusione ricorsiva: gli oggetti si fondono, tutto il resto (numeri, testi, array) si sostituisce.
+-- Stessa semantica di deepMerge in js/sync/diff.js.
+create or replace function public._jsonb_deep_merge(a jsonb, b jsonb)
+returns jsonb language sql immutable
+set search_path = public as $$
+  select case
+    when jsonb_typeof(a) = 'object' and jsonb_typeof(b) = 'object' then
+      coalesce((
+        select jsonb_object_agg(k, case
+          when a ? k and b ? k then public._jsonb_deep_merge(a -> k, b -> k)
+          when b ? k then b -> k
+          else a -> k end)
+        from (select jsonb_object_keys(a) as k union select jsonb_object_keys(b)) keys
+      ), '{}'::jsonb)
+    else b
+  end;
+$$;
 
 -- Id della campagna a cui il token admin dà accesso (altrimenti errore).
 create or replace function public._admin_campaign(p_token text)
@@ -247,9 +266,21 @@ begin
     from characters c where c.id = r.character_id;
 end $$;
 
--- Salva solo le sezioni modificate (chiavi di primo livello di p_changes) e
--- restituisce lo stato completo risultante, così il client si riallinea con
--- eventuali modifiche fatte in parallelo da un'altra persona su sezioni diverse.
+-- Solo il numero di revisione: è ciò che il polling chiede ogni pochi secondi
+-- (pochi byte invece dell'intera scheda); la scheda si scarica solo se è cambiata.
+create or replace function public.character_revision(p_token text, p_character_id uuid default null)
+returns bigint language plpgsql security definer
+set search_path = public, extensions as $$
+declare r record; rev bigint;
+begin
+  select * into r from _resolve_character(p_token, p_character_id);
+  select c.revision into rev from characters c where c.id = r.character_id;
+  return rev;
+end $$;
+
+-- Salva solo i campi modificati (p_changes è un documento parziale, fuso in profondità)
+-- e restituisce lo stato completo risultante, così il client si riallinea con le
+-- modifiche fatte in parallelo da un'altra persona su campi diversi.
 create or replace function public.save_character(p_token text, p_character_id uuid, p_changes jsonb)
 returns table (data jsonb, revision bigint, updated_by text)
 language plpgsql security definer
@@ -261,7 +292,7 @@ begin
 
   return query
     update characters c
-       set data = c.data || p_changes,
+       set data = public._jsonb_deep_merge(c.data, p_changes),
            revision = c.revision + 1,
            updated_by = r.role,
            updated_at = now()
@@ -286,5 +317,6 @@ grant execute on function
   public.rotate_player_token(text, uuid),
   public.delete_character(text, uuid),
   public.get_character(text, uuid),
+  public.character_revision(text, uuid),
   public.save_character(text, uuid, jsonb)
 to anon, authenticated;
