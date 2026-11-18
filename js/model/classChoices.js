@@ -63,6 +63,7 @@ export function normalizeClassChoices(raw, classId) {
   // Dipendenze: i genitori vengono prima dei figli nell'ordine delle definizioni.
   for (const def of defs) {
     if (!whenMet(def, (key) => result[key])) result[def.key] = isListType(def.type) ? [] : '';
+    if (def.differsFrom && result[def.key] && result[def.key] === result[def.differsFrom]) result[def.key] = '';
   }
   return result;
 }
@@ -175,9 +176,15 @@ export function choiceFeatureRows(resolved, level) {
     if (def.subclass) continue;
     const replaces = def.featureName ? loc(def, 'featureName') : (def.replacesFeature ? loc(def, 'label') : undefined);
     if (def.type === 'single' && def.featureName && g.option) {
+      const detail = loc(g.option, 'description');
       picks.push({
         level: def.minLevel, name: loc(def, 'label'), replaces, append: true,
-        description: `${pick('Scelta', 'Chosen')}: ${loc(g.option, 'label')}.`,
+        description: `${pick('Scelta', 'Chosen')}: ${loc(g.option, 'label')}.${detail ? ` ${detail}` : ''}`,
+      });
+    } else if (def.type === 'text' && def.featureName && g.value) {
+      picks.push({
+        level: def.minLevel, name: loc(def, 'label'), replaces, append: true,
+        description: `${pick('Scelta', 'Chosen')}: ${g.value}.`,
       });
     } else if (def.type === 'single' && g.option?.description) {
       picks.push({
@@ -193,7 +200,19 @@ export function choiceFeatureRows(resolved, level) {
   return { subclassFeatures, picks };
 }
 
-const prereqNote = (prereq) => (prereq?.level ? pick(`Richiede il livello ${prereq.level}`, `Requires level ${prereq.level}`) : '');
+/** "Richiede: Patto della Lama, livello 5": prerequisiti strutturati più la nota sul trucchetto (non verificabile). */
+function requirementText(option, defs) {
+  const parts = [];
+  const { prereq } = option;
+  if (prereq?.choice) {
+    const target = defs.find((d) => d.key === prereq.choice.key)?.options.find((o) => o.value === prereq.choice.value);
+    if (target) parts.push(loc(target, 'label'));
+  }
+  if (prereq?.level) parts.push(pick(`livello ${prereq.level}`, `level ${prereq.level}`));
+  const note = loc(option, 'prereqNote');
+  if (note) parts.push(note.replace(/^(Richiede|Requires) /, ''));
+  return parts.length ? `${pick('Richiede', 'Requires')}: ${parts.join(', ')}` : '';
+}
 
 /**
  * Modello per la UI: una voce per ogni scelta attiva (menu, elenco con caselle o campo di testo).
@@ -201,7 +220,8 @@ const prereqNote = (prereq) => (prereq?.level ? pick(`Richiede il livello ${prer
  * @param {number} level
  * @param {(skillId: string) => boolean} isProficient competenza di base
  */
-export function describeChoiceGroups(resolved, level, isProficient) {
+export function describeChoiceGroups(resolved, level, isProficient, classId) {
+  const defs = getChoiceDefs(classId);
   const reasonText = {
     prereq: pick('prerequisito non soddisfatto', 'prerequisite not met'),
     proficiency: pick('non più competente', 'no longer proficient'),
@@ -212,11 +232,15 @@ export function describeChoiceGroups(resolved, level, isProficient) {
       key: g.key, type: g.type, label: loc(def, 'label'), hint: loc(def, 'hint') ?? '',
       count: g.count, selectedCount: g.effective.length, value: g.value, values: g.effective,
       description: g.option ? (loc(g.option, 'description') ?? '') : '',
-      overflow: g.overflow.map((v) => choiceValueLabel(def, v)),
-      blocked: g.blocked.map((b) => ({ label: choiceValueLabel(def, b.value), reason: reasonText[b.reason] })),
+      overflow: g.overflow.map((v) => ({ value: v, label: choiceValueLabel(def, v) })),
+      blocked: g.blocked.map((b) => ({ value: b.value, label: choiceValueLabel(def, b.value), reason: reasonText[b.reason] })),
     };
     if (def.type === 'single') {
-      return { ...base, options: def.options.map((o) => ({ value: o.value, label: loc(o, 'label') })), searchable: false };
+      const taken = def.differsFrom ? resolved.valueOf(def.differsFrom) : '';
+      return {
+        ...base, searchable: false,
+        options: def.options.filter((o) => !taken || o.value !== taken).map((o) => ({ value: o.value, label: loc(o, 'label') })),
+      };
     }
     if (def.type === 'text') return { ...base, options: [], searchable: false };
 
@@ -228,17 +252,17 @@ export function describeChoiceGroups(resolved, level, isProficient) {
       const option = def.options.find((o) => o.value === value);
       const selected = g.effective.includes(value);
       const isSkill = SKILL_IDS.includes(value);
-      let note = option ? (loc(option, 'description') ?? '') : '';
+      let note = option ? [loc(option, 'description'), requirementText(option, defs)].filter(Boolean).join(' · ') : '';
       let disabled = false;
       if (!selected) {
         if (full) disabled = true;
-        if (option?.prereq && !prereqMet(option.prereq, level, resolved.valueOf)) { disabled = true; note = prereqNote(option.prereq); }
+        if (option?.prereq && !prereqMet(option.prereq, level, resolved.valueOf)) disabled = true;
         if (def.type === 'skills' && def.mode === 'expertise' && isSkill
           && !isProficient(value) && !resolved.grantedSkills.has(value)) {
           disabled = true; note = pick('Non competente', 'Not proficient');
         }
       }
-      return { value, label: choiceValueLabel(def, value), note, selected, disabled };
+      return { value, label: choiceValueLabel(def, value), note, selected, disabled, group: option ? (loc(option, 'group') ?? '') : '' };
     });
     return { ...base, options, searchable: options.length > 12 };
   });

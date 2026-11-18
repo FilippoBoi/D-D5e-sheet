@@ -164,7 +164,7 @@ export function deriveStats(state) {
     options: skillOptions(classStart.skillChoice.from),
   }));
 
-  const classChoiceGroups = describeChoiceGroups(resolved, level, baseProficient);
+  const classChoiceGroups = describeChoiceGroups(resolved, level, baseProficient, cls.id);
 
   return {
     race: race ? {

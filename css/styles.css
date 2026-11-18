@@ -518,3 +518,14 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   margin-left: 0.5rem; padding: 0.05rem 0.45rem; font-size: 0.7rem; font-weight: 600; color: var(--teal-strong);
   background: var(--teal-soft); border-radius: 999px; white-space: nowrap;
 }
+.choice__group {
+  grid-column: 1 / -1; margin: 0.4rem 0 0; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.choice__warn { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.choice__warn[hidden] { display: none; }
+.choice__chip {
+  min-height: 2.2rem; padding: 0.2rem 0.6rem; font: inherit; font-size: 0.8rem; color: var(--text); cursor: pointer;
+  background: var(--card); border: 1px solid var(--gold); border-radius: 999px;
+}
+.choice__chip:hover { background: var(--card-raised); }

@@ -195,7 +195,12 @@ export class CharacterModel extends EventEmitter {
     const value = validateChoiceValue(classId, key, rawValue);
     const choices = this.#state.info.classChoices;
     if (value === undefined || Object.is(value, choices[key])) return false;
+    const defs = getChoiceDefs(classId);
+    const own = defs.find((d) => d.key === key);
+    if (value && own?.differsFrom && value === choices[own.differsFrom]) return false; // deve differire dall'altra scelta
     choices[key] = value;
+    // Chi deve differire da questa scelta e ora è uguale si azzera (es. secondo stile uguale al primo).
+    for (const d of defs) if (d.differsFrom === key && value && choices[d.key] === value) choices[d.key] = '';
     const reset = (parent) => {
       for (const child of dependentKeys(classId, parent)) {
         const def = getChoiceDefs(classId).find((d) => d.key === child);

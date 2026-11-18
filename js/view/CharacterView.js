@@ -360,13 +360,22 @@ export class CharacterView {
       ]);
     }
 
-    const list = el('div', { class: 'choice__list' }, g.options.map((o) => el('label', { class: 'choice__opt', dataset: { search: `${o.label} ${o.note}`.toLowerCase() } }, [
-      el('input', { type: 'checkbox', dataset: { action: 'toggle-choice', choiceKey: g.key, choiceValue: o.value } }),
-      el('span', { class: 'choice__text' }, [
-        el('span', { class: 'choice__name', text: o.label }),
-        el('small', { class: 'choice__note', dataset: { role: 'note' } }),
-      ]),
-    ])));
+    const rows = [];
+    let lastGroup = null;
+    for (const o of g.options) {
+      if (o.group && o.group !== lastGroup) {
+        rows.push(el('p', { class: 'choice__group', dataset: { group: o.group } }, o.group));
+        lastGroup = o.group;
+      }
+      rows.push(el('label', { class: 'choice__opt', dataset: { search: `${o.label} ${o.note}`.toLowerCase(), group: o.group } }, [
+        el('input', { type: 'checkbox', dataset: { action: 'toggle-choice', choiceKey: g.key, choiceValue: o.value } }),
+        el('span', { class: 'choice__text' }, [
+          el('span', { class: 'choice__name', text: o.label }),
+          el('small', { class: 'choice__note', dataset: { role: 'note' } }),
+        ]),
+      ]));
+    }
+    const list = el('div', { class: 'choice__list' }, rows);
     const fieldset = el('fieldset', { class: 'choice choice--multi', dataset: { choice: g.key } }, [
       el('legend', { class: 'field__label', text: g.label }),
       g.hint ? el('p', { class: 'hint', text: g.hint }) : null,
@@ -380,6 +389,10 @@ export class CharacterView {
       search.addEventListener('input', () => {
         const query = search.value.trim().toLowerCase();
         list.querySelectorAll('.choice__opt').forEach((row) => { row.hidden = Boolean(query) && !row.dataset.search.includes(query); });
+        // Un titolo di gruppo resta visibile solo se ha almeno una voce visibile.
+        list.querySelectorAll('.choice__group').forEach((title) => {
+          title.hidden = ![...list.querySelectorAll('.choice__opt')].some((row) => row.dataset.group === title.dataset.group && !row.hidden);
+        });
       });
       fieldset.append(search);
     }
@@ -401,13 +414,23 @@ export class CharacterView {
       row.querySelector('[data-role="note"]').textContent = o.note;
     });
     part('count').textContent = `${g.selectedCount}/${g.count}`;
-    const messages = [
-      g.overflow.length ? `${pick('Oltre il limite, non contano', 'Over the limit, not counted')}: ${g.overflow.join(', ')}.` : '',
-      ...g.blocked.map((b) => `${b.label}: ${b.reason}.`),
-    ].filter(Boolean);
+    // Elementi memorizzati ma che non contano: si segnalano e si possono togliere (le caselle sono bloccate).
+    const stale = [
+      ...g.overflow.map((o) => ({ ...o, why: pick('oltre il limite', 'over the limit') })),
+      ...g.blocked.map((b) => ({ ...b, why: b.reason })),
+    ];
     const warn = part('warn');
-    warn.hidden = messages.length === 0;
-    warn.textContent = messages.join(' ');
+    const signature = stale.map((x) => `${x.value}:${x.why}`).join('|');
+    if (warn.dataset.signature === signature) return;
+    warn.dataset.signature = signature;
+    warn.hidden = stale.length === 0;
+    warn.replaceChildren(...(stale.length ? [
+      el('span', { text: `${pick('Memorizzati ma non contano', 'Stored but not counted')}: ` }),
+      ...stale.map((x) => el('button', {
+        type: 'button', class: 'choice__chip', 'aria-label': `${pick('Rimuovi', 'Remove')} ${x.label}`,
+        title: x.why, dataset: { action: 'toggle-choice', choiceKey: g.key, choiceValue: x.value },
+      }, `${x.label} (${x.why}) ✕`)),
+    ] : []));
   }
 
   /** Oggetti che modificano la CA: nome e bonus, con rimozione. */
