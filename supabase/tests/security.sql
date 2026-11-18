@@ -22,7 +22,7 @@ begin
 end $$;
 
 -- Cambia "chi parla": 'root', 'anon', oppure l'id di un account (Master loggato).
-create function pg_temp.act(p_who text) returns void language plpgsql as $$
+create function pg_temp.act(p_who text, p_anonymous boolean default false) returns void language plpgsql as $$
 begin
   if p_who = 'root' then
     perform set_config('request.jwt.claims', '', true);
@@ -31,7 +31,7 @@ begin
     perform set_config('request.jwt.claims', '', true);
     execute 'set local role anon';
   else
-    perform set_config('request.jwt.claims', json_build_object('sub', p_who, 'role', 'authenticated')::text, true);
+    perform set_config('request.jwt.claims', json_build_object('sub', p_who, 'role', 'authenticated', 'is_anonymous', p_anonymous)::text, true);
     execute 'set local role authenticated';
   end if;
 end $$;
@@ -48,6 +48,19 @@ begin
   insert into auth.users (email) values ('a@example.com') returning id::text into m1;
   insert into auth.users (email) values ('b@example.com') returning id::text into m2;
   insert into auth.users (email) values ('c@example.com') returning id::text into m3;
+
+  -- ------------------------------------------------ 0b. Nessuna porta vecchia: niente funzioni con token admin (tranne la rivendicazione)
+  perform pg_temp.check(not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proargnames @> array['p_admin_token'] and p.proname <> 'claim_campaign'
+  ), 'restano funzioni con il vecchio token admin: ' || coalesce((
+    select string_agg(p.oid::regprocedure::text, ', ') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proargnames @> array['p_admin_token'] and p.proname <> 'claim_campaign'), ''));
+  perform pg_temp.check(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = '_admin_campaign'),
+    'il vecchio helper _admin_campaign è stato tolto');
+  perform pg_temp.check((select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname in ('create_campaign', 'rename_campaign', 'delete_campaign', 'list_characters', 'create_character', 'rename_character', 'rotate_player_token', 'delete_character')) = 8,
+    'ogni funzione di gestione esiste una sola volta (nessun overload vecchio)');
 
   -- ------------------------------------------------ 1. Accesso diretto e funzioni interne
   perform pg_temp.act('anon');
@@ -72,6 +85,12 @@ begin
   perform pg_temp.fails_with($q$select * from claim_campaign('ADM-AAAA-AAAA-AAAA')$q$, 'permission denied for function claim_campaign');
   perform pg_temp.fails_with($q$select * from list_characters('00000000-0000-0000-0000-000000000000')$q$, 'permission denied for function list_characters');
   perform pg_temp.fails_with($q$select delete_campaign('00000000-0000-0000-0000-000000000000')$q$, 'permission denied for function delete_campaign');
+
+  -- Un accesso anonimo di Supabase ha il ruolo "authenticated" ma non è un Master
+  perform pg_temp.act(m3, true);
+  perform pg_temp.fails_with($q$select * from create_campaign('Anonima')$q$, 'auth_required');
+  perform pg_temp.fails_with($q$select * from list_campaigns()$q$, 'auth_required');
+  perform pg_temp.fails_with($q$select * from claim_campaign('ADM-AAAA-AAAA-AAAA')$q$, 'auth_required');
 
   -- ------------------------------------------------ 3. Creazione campagne (account) e codice di creazione
   perform pg_temp.act(m1);
@@ -231,9 +250,16 @@ begin
   perform pg_temp.act('root');
   -- (se il database arriva da un aggiornamento, c'è anche la campagna di legacy.sql)
   if exists (select 1 from campaigns where name = 'Campagna legacy' and owner_id is null) then
+    -- il giocatore esistente non si accorge dell'aggiornamento: stesso token, stessi dati
+    perform pg_temp.act('anon');
+    perform pg_temp.check((select revision from get_character('PG-LEGA-CYPL-AYER')) = 3, 'aggiornamento: la revisione del giocatore esistente');
+    perform pg_temp.check((select data -> 'info' ->> 'name' from get_character('PG-LEGA-CYPL-AYER')) = 'Lia Vecchia', 'aggiornamento: i dati del giocatore esistente');
+    select * into x from save_character('PG-LEGA-CYPL-AYER', null, '{"info":{"name":"Lia Nuova"}}');
+    perform pg_temp.check(x.revision = 4, 'aggiornamento: il giocatore esistente può ancora salvare');
     perform pg_temp.act(m1);
     select * into x from claim_campaign('ADM-LEGA-CYCA-MPNX');
     perform pg_temp.check(x.campaign_name = 'Campagna legacy', 'campagna preesistente rivendicata dopo l''aggiornamento');
+    perform pg_temp.check((select count(*) from list_characters(x.campaign_id)) = 1, 'la scheda del giocatore esistente è nella campagna rivendicata');
   end if;
 
   -- ------------------------------------------------ 11. Eliminazioni

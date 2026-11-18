@@ -39,12 +39,12 @@ js/
 │   └── LocalStorageRepository.js ← persistenza
 ├── view/                       ← VIEW: solo DOM, nessuna regola di gioco
 │   ├── CharacterView.js
-│   ├── AuthView.js             ← barra di sessione, login, pannello admin
+│   ├── AuthView.js             ← barra di sessione, login, pannello del Master
 │   └── dom.js
 ├── controller/
 │   ├── CharacterController.js  ← eventi View → comandi Model → render View
-│   └── SessionController.js    ← login, pannello admin, collega la scheda condivisa
-├── auth/AuthService.js         ← token, sessioni ricordate nel browser
+│   └── SessionController.js    ← login, pannello del Master, collega la scheda condivisa
+├── auth/                       ← AccountService (login Master con email), AuthService (chi è collegato)
 ├── net/RemoteApi.js            ← chiamate RPC al database (solo fetch)
 ├── sync/                       ← sincronizzazione per sezione (CharacterSync, diff)
 └── config.js                   ← URL e chiave pubblica del backend (vuoti = solo locale)
@@ -98,13 +98,13 @@ npm test
 
 I test girano anche su GitHub Actions a ogni push e pull request (`.github/workflows/ci.yml`).
 
-Il backend ha un suo test di sicurezza (`supabase/tests/security.sql`): carica lo schema su un Postgres vero e verifica, come ruolo `anon`, che nessuno possa leggere o scrivere schede altrui, tra giocatori e tra campagne, che i token ruotati smettano di funzionare e che due persone non si sovrascrivano. In CI parte da solo; in locale, con un Postgres qualsiasi:
+Il backend ha un suo test di sicurezza (`supabase/tests/security.sql`): carica lo schema su un Postgres vero e verifica, recitando i ruoli reali (anonimo, Master loggato, proprietario del database), che nessuno possa leggere o scrivere schede altrui, tra giocatori e tra Master, che i token ruotati smettano di funzionare, che una campagna si rivendichi una sola volta e che due persone non si sovrescrivano. In CI parte da solo; in locale, con un Postgres qualsiasi:
 
 ```bash
 psql -v ON_ERROR_STOP=1 -f supabase/tests/prepare.sql -f supabase/schema.sql -f supabase/tests/security.sql
 ```
 
-(`prepare.sql` crea i ruoli e lo schema che Supabase fornisce già: su Supabase non serve. `legacy.sql` simula un database con la versione precedente dello schema, per provare l'aggiornamento: in CI gira prima di `schema.sql`.)
+(`prepare.sql` crea i ruoli, lo schema `auth` e `auth.uid()` che Supabase fornisce già: su Supabase non serve. `fixtures/` contiene gli schemi realmente pubblicati in passato (v1 e v2) e `legacy.sql` i dati di una campagna con il token admin: servono a provare l'aggiornamento di un database già in uso e la rivendicazione, anche in CI.)
 
 ## Pubblicazione su GitHub Pages
 
@@ -125,40 +125,51 @@ Il file `.nojekyll` dice a GitHub Pages di servire i file così come sono, senza
 
 ## Collaborazione online (opzionale)
 
-Master e giocatori possono lavorare sulla stessa scheda. Non ci sono email né password: si entra con un **token univoco**.
+Master e giocatori possono lavorare sulla stessa scheda. Il **Master** entra con la sua **email** (un link, niente password); i **giocatori** con un **token** che il Master dà loro.
 
-| Chi | Token | Cosa può fare |
+| Chi | Come entra | Cosa può fare |
 |---|---|---|
-| **Master (admin)** | `ADM-XXXX-XXXX-XXXX` | Crea più campagne; per ognuna crea le schede, vede e modifica quelle di tutti, ricopia i link, ruota (revoca) i token, elimina |
-| **Giocatore** | `PG-XXXX-XXXX-XXXX` | Una sola scheda: la sua. Non vede né tocca quelle degli altri |
+| **Master** | Account: riceve un link per email. Funziona da qualunque dispositivo, quindi non c'è nulla da perdere | Crea più campagne (ognuna ha **un solo Master**, il suo creatore); per ognuna crea le schede, vede e modifica quelle di tutti, ricopia i link, ruota (revoca) i token, elimina |
+| **Giocatore** | Token `PG-XXXX-XXXX-XXXX`, o link di invito `…/?t=TOKEN` | Una sola scheda: la sua. Non vede né tocca quelle degli altri |
 
-Il Master condivide il **link di invito** (`…/?t=TOKEN`) o il token da incollare in *Accedi*. Il token viene tolto dall'indirizzo subito dopo l'ingresso e il dispositivo resta collegato. Le modifiche arrivano agli altri in pochi secondi. Si scambiano solo i campi cambiati: il Master che toglie PF e il giocatore che cambia la velocità non si sovrascrivono, anche se i due campi stanno nella stessa sezione. Solo se due persone modificano *lo stesso campo* (o la stessa lista, come le armi) vince l'ultimo che salva. Ogni pochi secondi il browser chiede soltanto un numero di revisione (pochi byte) e scarica la scheda solo se è cambiata. La scheda locale del browser non viene toccata mentre si è in campagna, e se la scheda di campagna è vuota si può caricarci quella locale.
+Il token viene tolto dall'indirizzo subito dopo l'ingresso e il dispositivo resta collegato. Le modifiche arrivano agli altri in pochi secondi. Si scambiano solo i campi cambiati: il Master che toglie PF e il giocatore che cambia la velocità non si sovrascrivono, anche se i due campi stanno nella stessa sezione. Solo se due persone modificano *lo stesso campo* (o la stessa lista, come le armi) vince l'ultimo che salva. Ogni pochi secondi il browser chiede soltanto un numero di revisione (pochi byte) e scarica la scheda solo se è cambiata. La scheda locale del browser non viene toccata mentre si è in campagna, e se la scheda di campagna è vuota si può caricarci quella locale.
 
 **Senza configurazione l'app resta solo locale**, come prima.
 
-### Attivarla (circa 5 minuti, gratis)
+### Attivarla (circa 10 minuti, gratis)
 
 1. Crea un progetto su [supabase.com](https://supabase.com).
 2. In **SQL Editor** incolla ed esegui `supabase/schema.sql` (si può rieseguire dopo ogni aggiornamento).
-3. In **Project Settings → API** copia *Project URL* e la chiave *anon / publishable* in `js/config.js`. Sono pubbliche per progettazione: la sicurezza sta nel database. **Non** usare mai la chiave `service_role`.
-4. Pubblica come al solito. Apri il sito → **Accedi / Campagna** → *Crea campagna*.
-5. *(Consigliato)* Imposta un **codice di creazione**, così solo chi lo conosce può creare campagne sul tuo progetto. Nel SQL Editor:
+3. In **Authentication → URL Configuration** imposta **Site URL** con l'indirizzo del tuo sito (es. `https://tuonome.github.io/nome-repo/`) e aggiungilo anche tra i **Redirect URLs** (meglio con `/**` in fondo; per provare in locale aggiungi `http://localhost:8080/**`). Senza questo il link dell'email non riporta alla scheda.
+4. In **Project Settings → API** copia *Project URL* e la chiave *anon / publishable* in `js/config.js`. Sono pubbliche per progettazione: la sicurezza sta nel database. **Non** usare mai la chiave `service_role` / *secret*.
+5. Pubblica come al solito. Apri il sito → **Accedi / Campagna** → inserisci la tua email → apri il link ricevuto → *Crea campagna*.
+6. *(Consigliato)* Dopo aver fatto il tuo primo accesso, in **Authentication → Sign In / Providers** disattiva **Allow new users to sign up**: da quel momento nessun altro può registrarsi, né farti spedire email a indirizzi altrui. Se vuoi altri Master, riattivala il tempo che si registrino.
+7. *(Consigliato)* Imposta un **codice di creazione**, così solo chi lo conosce può creare campagne. Nel SQL Editor:
 
    ```sql
    select set_creation_code('una frase lunga e tua');
    ```
 
-   Da quel momento il form *Crea campagna* mostra il campo "Codice" e il database rifiuta la creazione senza il codice giusto. Le campagne già esistenti e chi entra con un token non cambiano. Per toglierlo: `select set_creation_code(null);`. Nel database resta solo l'hash; scegli una frase lunga, perché non c'è un limite di tentativi.
+   Il form *Crea campagna* chiederà il codice e il database rifiuta la creazione senza quello giusto. Per toglierlo: `select set_creation_code(null);`. Nel database resta solo l'hash; scegli una frase lunga, perché non c'è un limite di tentativi.
 
-**Aggiornare uno schema già installato**: incolla di nuovo `supabase/schema.sql` nel SQL Editor ed eseguilo. È sicuro farlo con dati presenti e non cancella campagne né schede.
+**Aggiornare uno schema già installato**: incolla di nuovo `supabase/schema.sql` ed eseguilo; non cancella campagne né schede. Se arrivi dalla versione con il **token admin**, quel token non serve più per entrare: accedi come Master con la tua email e, nella schermata *La tua campagna*, usa **Rivendica campagna** con il vecchio token. Succede una volta sola: da quel momento la campagna è del tuo account e il vecchio token smette di valere. I token dei giocatori non cambiano.
+
+### Email: limiti e problemi comuni
+
+- Il servizio email incluso in Supabase consegna **solo agli indirizzi dei membri della tua organizzazione** e manda **al massimo 2 email l'ora** ([dettagli](https://supabase.com/docs/guides/auth/rate-limits)). Per un Master solo (tu) basta. Per altri Master serve un provider email tuo (SMTP personalizzato, in **Authentication → SMTP Settings**, es. Resend o Brevo con piano gratuito): il codice non cambia.
+- *"Il link è scaduto o già usato"*: alcuni programmi di posta aprono i link in anteprima e li consumano prima di te. Chiedi un nuovo link e aprilo copiandolo nel browser; tra un invio e l'altro passa almeno un minuto.
+- *"Troppi invii di email"*: hai raggiunto il limite orario; aspetta o configura un SMTP tuo.
 
 ### Sicurezza, in breve
 
-- Le tabelle hanno RLS attiva e nessuna policy: con la chiave pubblica non si legge né scrive nulla direttamente. Tutto passa da funzioni che verificano il token e limitano l'accesso alla campagna / scheda del chiamante.
-- Il token admin è salvato solo come hash e si vede alla creazione (il browser lo ricorda e il pannello lo mostra). I token dei giocatori sono salvati in chiaro perché il Master deve poterli ricopiare: chi ha il token di una scheda può modificarla, quindi trattalo come una password.
+- Le tabelle hanno RLS attiva e nessuna policy: con la chiave pubblica non si legge né scrive nulla direttamente. Tutto passa da funzioni che verificano **chi chiama**: l'account (Master) o il token (giocatore), e limitano l'accesso alla sua campagna / scheda.
+- Il Master è un account Supabase Auth con email; l'unico proprietario di una campagna è chi l'ha creata. Gli accessi anonimi di Supabase (se mai li attivassi) non sono considerati Master.
+- I token dei giocatori sono salvati in chiaro perché il Master deve poterli ricopiare: sono leggibili solo dal proprietario della campagna. Chi ha il token di una scheda può modificarla, quindi trattalo come una password.
 - Token da 60 bit casuali: non si indovinano. Non c'è un limite di frequenza sui tentativi, di proposito: un'attesa nel database terrebbe occupata una connessione per ogni tentativo e permetterebbe a chiunque di esaurirle con poche richieste. Per un tavolo di gioco è adeguato, non per dati sensibili.
-- I link di invito contengono il token: la pagina non invia mai il Referer ad altri siti e toglie il token dall'indirizzo dopo l'ingresso. Resta però nella cronologia del browser da cui il link è stato aperto; se il dubbio c'è, il Master può rigenerare il token.
-- Senza codice di creazione (vedi sopra) chiunque conosca l'URL del progetto può creare campagne, perché non servono account: non vede né tocca le altre, ma usa il tuo spazio. Con il codice impostato lo può fare solo chi lo conosce. In ogni caso il limite è di 50 schede per campagna e 128 KB per scheda (una scheda reale ne occupa pochi).
+- La sessione del Master sta nel browser (`localStorage`) e si rinnova da sola. La pagina ha una **Content-Security-Policy** che le permette di caricare solo i propri file e di parlare solo con sé stessa e con `*.supabase.co`, così uno script iniettato non potrebbe spedire altrove la sessione. Se il progetto usa un dominio Supabase personalizzato, aggiungilo a `connect-src` nel `<meta>` di `index.html`. Dopo l'ingresso dal link il refresh token che era nell'indirizzo viene subito sostituito, perché non resti valido nella cronologia del browser.
+- I link di invito dei giocatori contengono il token: la pagina non invia mai il Referer ad altri siti e lo toglie dall'indirizzo dopo l'ingresso. Resta però nella cronologia del browser da cui il link è stato aperto; se il dubbio c'è, il Master può rigenerare il token.
+- Senza codice di creazione (vedi sopra) chiunque sia registrato può creare campagne: non vede né tocca le altre, ma usa il tuo spazio. In ogni caso il limite è di 50 schede per campagna e 128 KB per scheda (una scheda reale ne occupa pochi).
+- Se un account viene eliminato da Supabase, le sue campagne restano (senza proprietario) e i giocatori non perdono la scheda.
 - Il piano gratuito di Supabase mette in pausa i progetti inattivi per qualche settimana: al primo accesso basta riattivarlo dal pannello.
 
 ## Dati e privacy

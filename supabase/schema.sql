@@ -113,13 +113,18 @@ set search_path = public as $$
   end;
 $$;
 
--- Chi chiama è un account loggato (altrimenti 'auth_required').
+-- Chi chiama è un account con email loggato (altrimenti 'auth_required').
 create or replace function public._me()
 returns uuid language plpgsql
 set search_path = public as $$
 declare uid uuid := auth.uid();
 begin
-  if uid is null then raise exception 'auth_required'; end if;
+  -- Anche gli accessi anonimi di Supabase (se qualcuno li attivasse) hanno il ruolo "authenticated":
+  -- non sono un Master, che deve avere un'email.
+  if uid is null
+     or coalesce((nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'is_anonymous')::boolean, false) then
+    raise exception 'auth_required';
+  end if;
   return uid;
 end $$;
 

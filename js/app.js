@@ -13,6 +13,7 @@ import { CharacterView } from './view/CharacterView.js';
 import { CharacterController } from './controller/CharacterController.js';
 import { SessionController } from './controller/SessionController.js';
 import { AuthService } from './auth/AuthService.js';
+import { AccountService } from './auth/AccountService.js';
 import { AuthView } from './view/AuthView.js';
 import { RemoteApi } from './net/RemoteApi.js';
 import { REMOTE_CONFIG, isRemoteConfigured } from './config.js';
@@ -40,10 +41,11 @@ controller.init();
 
 // Collaborazione online (opzionale): attiva solo se il backend è configurato in js/config.js.
 if (isRemoteConfigured()) {
-  const api = new RemoteApi(REMOTE_CONFIG);
   const storage = (() => { try { return globalThis.localStorage ?? null; } catch { return null; } })();
+  const account = new AccountService(REMOTE_CONFIG, storage);                 // login del Master (email)
+  const api = new RemoteApi({ ...REMOTE_CONFIG, getAccessToken: (options) => account.getAccessToken(options) });
   new SessionController({
-    auth: new AuthService(api, storage),
+    auth: new AuthService(api, storage, account),
     api,
     view: new AuthView(document),
     characters: controller,
