@@ -13,6 +13,7 @@ import { allowedValuesForKey, defaultChoiceValues, MAX_CHOICE_TEXT } from '../da
 import { BACKGROUND_IDS, NO_BACKGROUND_ID } from '../data/backgrounds.js';
 import { SKILLS } from '../data/skills.js';
 import { normalizeClassChoices } from './classChoices.js';
+import { RESOURCE_IDS } from '../data/classResources.js';
 const SKILL_IDS = SKILLS.map((s) => s.id);
 import { clamp, clampInt, isPlainObject } from '../core/utils.js';
 
@@ -83,6 +84,8 @@ export function createDefaultCharacter() {
       coins: { mr: 0, ma: 0, me: 0, mo: 0, mp: 0 },
     },
     weapons: [],
+    // Usi già spesi delle risorse a riposo (Ire, Ki, Azione Impetuosa...): si azzerano coi riposi.
+    resourcesUsed: Object.fromEntries(RESOURCE_IDS.map((id) => [id, 0])),
     spells: {
       cantrips: '', prepared: '',
       slotsUsed: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), 0])),
@@ -119,6 +122,7 @@ const RULES = [
   [/^(equipment|weapons\.\d+)\.magicBonus$/, (v) => clampInt(v, -5, 10)],
   [/^weapons\.\d+\.ability$/, (v) => (WEAPON_ABILITIES.includes(v) ? v : undefined)],
   [/^weapons\.\d+\.(name|damage|damageType)$/, (v) => v.slice(0, 80)],
+  [/^resourcesUsed\.\w+$/, (v) => clampInt(v, 0, 999)],
   [/^spells\.slotsUsed\.\d$/, (v) => clampInt(v, 0, 9)],
   [/^equipment\.coins\.\w+$/, (v) => clampInt(v, 0, 9_999_999)],
 ];

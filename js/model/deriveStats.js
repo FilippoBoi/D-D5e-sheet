@@ -19,7 +19,7 @@ import { clamp, formatModifier } from '../core/utils.js';
 import { loc, pick } from '../i18n/i18n.js';
 import { choiceFeatureRows, describeChoiceGroups, resolveClassChoices } from './classChoices.js';
 import {
-  abilityModifier, attackBonus, computeArmorClass, proficiencyBonus, skillBonus,
+  abilityModifier, attackBonus, averageHpGain, computeArmorClass, proficiencyBonus, skillBonus,
   spellAttackBonus, spellSaveDC, spellSlotsFor, suggestedMaxHp,
 } from './calculations.js';
 
@@ -257,10 +257,24 @@ export function deriveStats(state, { sources = null } = {}) {
     },
 
     features,
+    // Risorse a usi limitati (con spunte) e risorse solo informative (valori che scalano col livello).
+    usables: resources.filter((r) => r.use).map((r) => {
+      const used = Math.min(state.resourcesUsed[r.use.id] ?? 0, r.use.max);
+      return {
+        id: r.use.id, label: r.label, detail: r.value, max: r.use.max, recharge: r.use.recharge,
+        used, remaining: `${r.use.max - used}/${r.use.max}`, path: `resourcesUsed.${r.use.id}`,
+      };
+    }),
+    infoResources: resources.filter((r) => !r.use),
     resources,
     hasResources: resources.length > 0,
+    hasUsables: resources.some((r) => r.use),
 
     hp: {
+      hitDieSides: cls.hitDie,
+      conMod: mods.con,
+      perLevelBonus: resolved.effects.hpPerLevel ?? 0,
+      averageGain: averageHpGain(cls.hitDie, mods.con, resolved.effects.hpPerLevel ?? 0),
       suggested: suggestedMaxHp(cls.hitDie, level, mods.con, resolved.effects.hpPerLevel),
       percent: hpPercent,
       level: hpLevel(hpPercent),

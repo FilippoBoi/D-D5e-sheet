@@ -166,7 +166,8 @@
               <input type="number" min="1" max="999" inputmode="numeric" data-ref="hp-delta" placeholder="0"></label>
             <button type="button" class="btn btn--danger" data-action="damage">Danno</button>
             <button type="button" class="btn btn--teal" data-action="heal">Cura</button>
-            <button type="button" class="btn btn--ghost" data-action="long-rest">Riposo lungo</button>
+            <button type="button" class="btn btn--ghost" data-action="short-rest" title="Recupera le risorse che tornano con un riposo breve">Riposo breve</button>
+            <button type="button" class="btn btn--ghost" data-action="long-rest" title="Recupera PF, slot e tutte le risorse">Riposo lungo</button>
           </div>
         </div>
 
@@ -305,6 +306,11 @@
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
       <div class="panel__body">
+        <div data-show-if="hasUsables">
+          <h3 class="subhead">Abilità a usi limitati</h3>
+          <p class="hint">Spunta gli usi spesi: tornano col riposo breve o lungo indicato.</p>
+          <div class="usables" data-list="usables"></div>
+        </div>
         <div data-show-if="hasResources">
           <h3 class="subhead">Risorse di classe</h3>
           <div class="resources" data-list="resources"></div>

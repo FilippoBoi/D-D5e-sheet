@@ -452,6 +452,17 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 /* ---------- Privilegi e risorse ---------- */
 .resources { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 .resources .stat__value { font-size: 1.1rem; }
+.usables { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-bottom: 0.75rem; }
+.usable { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.55rem 0.7rem; background: var(--card-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.usable__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.2rem 0.5rem; }
+.usable__name { font-weight: 600; }
+.usable__tag { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text-muted); }
+.usable__tag--short { color: var(--teal-strong); border-color: var(--teal); background: var(--teal-soft); }
+.usable__body { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.usable__count { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.85rem; }
+.usable__counter { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; }
+.usable__counter input { width: 5rem; }
+.usable__detail { color: var(--text-muted); }
 .features { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 .feature {
   display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: start;
@@ -475,7 +486,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---------- Stampa ---------- */
 @media print {
-  .toolbar, .lang-switch, .quickbar, .hp__actions, .btn, .save-status, .session-bar, .dialog { display: none !important; }
+  .toolbar, .lang-switch, .quickbar, .hp__actions, .usable__counter, .btn, .save-status, .session-bar, .dialog { display: none !important; }
   body { background: #fff; color: #000; }
   .panel { box-shadow: none; break-inside: avoid; }
 }
