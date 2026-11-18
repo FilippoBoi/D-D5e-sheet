@@ -21,6 +21,7 @@ import { ARMOR_CATEGORIES_EN } from '../data/armors.js';
 import { getLang, loc, pick } from '../i18n/i18n.js';
 import { GROUP_LABELS } from '../data/sources.js';
 import { translateString, translateTree } from '../i18n/domTranslator.js';
+import { bindInfoButtons, infoButton } from './descriptionDialog.js';
 
 /** 1 → 1st, 2 → 2nd, 3 → 3rd, 4 → 4th... (solo inglese). */
 function ordinal(n) {
@@ -58,6 +59,7 @@ export class CharacterView {
     this.saveStatus = root.querySelector('[data-ref="save-status"]');
     this.hpBar = root.querySelector('[data-ref="hp-bar"]');
     this.hpDelta = root.querySelector('[data-ref="hp-delta"]');
+    bindInfoButtons(root);
   }
 
   #q(selector) { return this.#root.querySelector(selector); }
@@ -130,8 +132,11 @@ export class CharacterView {
         type: 'checkbox', class: 'expertise', title: pick('Maestria (doppia competenza)', 'Expertise (double proficiency)'),
         'aria-label': `${pick('Maestria in', 'Expertise in')} ${loc(s)}`, dataset: { bind: `skills.${s.id}.expertise` },
       }),
-      el('label', { class: 'checklist__name', for: `skill-${s.id}` }, [
-        loc(s), el('small', { text: shortOf[s.ability] }),
+      el('div', { class: 'checklist__namecell' }, [
+        el('label', { class: 'checklist__name', for: `skill-${s.id}` }, [
+          loc(s), el('small', { text: shortOf[s.ability] }),
+        ]),
+        infoButton('skill', s.id, loc(s)),
       ]),
       el('output', { class: 'checklist__value', dataset: { out: `skills.${s.id}`, format: 'mod' } }),
     ])));
@@ -680,6 +685,7 @@ export class CharacterView {
         ]),
         el('div', { class: 'spell__meta', text: `${spell.school} · ${spell.meta} · ${spell.sourceText}` }),
       ]),
+      infoButton('spell', spell.id, spell.name),
       el('button', {
         type: 'button', class: 'btn btn--ghost btn--icon', text: '✕',
         'aria-label': `${pick('Rimuovi', 'Remove')} ${spell.name}`, title: pick('Rimuovi', 'Remove'),
@@ -776,7 +782,7 @@ export class CharacterView {
         ]),
         isCantrips ? null : el('span', { class: 'spellrow__level', text: o.levelLabel }),
       ]);
-      const item = el('li', {}, [button]);
+      const item = el('li', { class: 'spellpick__item' }, [button, infoButton('spell', o.id, o.name)]);
       return { o, item, button, search: norm(`${o.name} ${o.altName}`) };
     });
     const list = el('ul', { class: 'spellpick__list' }, rows.map((r) => r.item));
