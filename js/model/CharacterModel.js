@@ -17,6 +17,8 @@ import { feetToMeters, getRace } from '../data/races.js';
 import { defaultChoiceValues, getChoiceDefs, isListType } from '../data/classChoices/index.js';
 import { averageHpGain, rolledHpGain } from './calculations.js';
 import { allowedValues, dependentKeys, validateChoiceValue } from './classChoices.js';
+import { MAX_CANTRIPS, MAX_SPELLS, getSpell } from '../data/spells.js';
+import { buildSpellOptions } from './spellPicker.js';
 
 export class CharacterModel extends EventEmitter {
   /** @type {ReturnType<typeof createDefaultCharacter>} */
@@ -97,6 +99,9 @@ export class CharacterModel extends EventEmitter {
       this.#state.classSkills = createDefaultCharacter().classSkills;
       // Le scelte di classe dipendono dalla classe: tutte da capo.
       this.#state.info.classChoices = defaultChoiceValues();
+      // Gli incantesimi scelti appartengono alla lista della vecchia classe.
+      this.#state.spells.cantripIds = [];
+      this.#state.spells.spellIds = [];
     }
     // Regola di dominio: cambiando razza si impostano velocità e abilità fisse.
     if (path === 'info.raceId') {
@@ -131,6 +136,42 @@ export class CharacterModel extends EventEmitter {
     }
     this.#emitChange(`info.classChoices.${key}`);
     return true;
+  }
+
+  /**
+   * Aggiunge o toglie un incantesimo (o trucchetto) dall'elenco scelto.
+   * Non blocca chi supera il limite della classe: il contatore lo segnala (talenti, regole della casa…).
+   * @param {'cantrips' | 'spells'} kind
+   * @param {string} id
+   * @returns {boolean} true se è cambiato
+   */
+  toggleSpell(kind, id) {
+    if (kind !== 'cantrips' && kind !== 'spells') return false;
+    const spell = typeof id === 'string' ? getSpell(id) : undefined;
+    if (!spell || (spell.level === 0) !== (kind === 'cantrips')) return false;
+    const key = kind === 'cantrips' ? 'cantripIds' : 'spellIds';
+    const list = this.#state.spells[key];
+    if (list.includes(id)) {
+      this.#state.spells[key] = list.filter((x) => x !== id);
+    } else {
+      if (list.length >= (kind === 'cantrips' ? MAX_CANTRIPS : MAX_SPELLS)) return false;
+      this.#state.spells[key] = [...list, id];
+    }
+    this.#emitChange(`spells.${key}`);
+    return true;
+  }
+
+  /**
+   * Elenco per il selettore: tutti gli incantesimi dei manuali attivi (più quelli già scelti),
+   * con il flag `own` per quelli della lista della classe.
+   * @param {'cantrips' | 'spells'} kind
+   */
+  getSpellOptions(kind) {
+    const derived = this.getDerived();
+    return buildSpellOptions({
+      kind, listClass: derived.spellcasting.listClass, enabled: this.#sources,
+      selected: this.#state.spells[kind === 'cantrips' ? 'cantripIds' : 'spellIds'],
+    });
   }
 
   addAcItem() {

@@ -16,6 +16,7 @@ import { normalizeClassChoices } from './classChoices.js';
 import { RESOURCE_IDS } from '../data/classResources.js';
 import { RACE_RESOURCE_IDS } from '../data/raceTraits.js';
 import { LANGUAGE_IDS, MAX_LANGUAGE_PICKS } from '../data/languages.js';
+import { MAX_CANTRIPS, MAX_SPELLS, getSpell } from '../data/spells.js';
 const SKILL_IDS = SKILLS.map((s) => s.id);
 import { clamp, clampInt, isPlainObject } from '../core/utils.js';
 
@@ -89,6 +90,8 @@ export function createDefaultCharacter() {
     // Usi già spesi delle risorse a riposo (Ire, Ki, Azione Impetuosa...): si azzerano coi riposi.
     resourcesUsed: Object.fromEntries([...RESOURCE_IDS, ...RACE_RESOURCE_IDS].map((id) => [id, 0])),
     spells: {
+      // Elenchi scelti dal catalogo (id di data/spells.js); i due testi liberi restano per ciò che non è in elenco.
+      cantripIds: [], spellIds: [],
       cantrips: '', prepared: '',
       slotsUsed: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), 0])),
     },
@@ -197,6 +200,16 @@ function normalizeWeapon(raw, index, usedIds) {
   return weapon;
 }
 
+/** Id di incantesimi validi: noti, del livello giusto (trucchetto o no), senza duplicati. */
+function normalizeSpellIds(raw, cantrips) {
+  if (!Array.isArray(raw)) return [];
+  const valid = raw.filter((id) => {
+    const spell = typeof id === 'string' ? getSpell(id) : undefined;
+    return spell && (spell.level === 0) === cantrips;
+  });
+  return [...new Set(valid)].slice(0, cantrips ? MAX_CANTRIPS : MAX_SPELLS);
+}
+
 /**
  * Costruisce uno stato completo e valido a partire da dati qualsiasi
  * (salvataggio precedente, JSON importato, null).
@@ -215,6 +228,8 @@ export function normalizeCharacter(raw) {
   state.equipment.acItems = Array.isArray(raw.equipment?.acItems)
     ? raw.equipment.acItems.slice(0, MAX_AC_ITEMS).map((item, i) => normalizeAcItem(item, i))
     : [];
+  state.spells.cantripIds = normalizeSpellIds(raw.spells?.cantripIds, true);
+  state.spells.spellIds = normalizeSpellIds(raw.spells?.spellIds, false);
   // Scelte di classe: valide per la classe attuale; salvataggi vecchi senza il campo ricevono i default.
   state.info.classChoices = normalizeClassChoices(raw.info?.classChoices, state.info.classId);
   state.version = SCHEMA_VERSION;

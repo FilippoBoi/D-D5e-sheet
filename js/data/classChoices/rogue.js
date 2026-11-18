@@ -51,7 +51,7 @@ export default {
         {
           value: 'arcaneTrickster', label: 'Mistificatore Arcano', labelEn: 'Arcane Trickster',
           description: 'Magia di ammaliamento e illusione (Intelligenza).', descriptionEn: 'Enchantment and illusion magic (Intelligence).',
-          effects: { spellcasting: { ability: 'int', progression: 'third', minLevel: 3 } },
+          effects: { spellcasting: { ability: 'int', progression: 'third', minLevel: 3, list: 'wizard', table: 'arcaneTrickster' } },
           features: [
             [3, 'Incantesimi', 'Lanci incantesimi da mago (soprattutto ammaliamento e illusione) usando l\'Intelligenza: slot, CD e bonus sono nel pannello Incantesimi.',
               'Spellcasting', 'Cast wizard spells (mostly enchantment and illusion) using Intelligence: slots, DC and bonus are in the Spells panel.'],

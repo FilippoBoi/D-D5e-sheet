@@ -15,7 +15,7 @@ Scheda personaggio interattiva per **Dungeons & Dragons 5ª Edizione**, scritta 
 | **3. Caratteristiche** | Modificatore `floor((punteggio − 10) / 2)` istantaneo, TS con competenze impostate dalla classe |
 | **4. Abilità** | Le 18 abilità ufficiali con competenza, Maestria e Factotum del Bardo; Percezione passiva |
 | **5. Equipaggiamento** | Tutte le armature del Manuale (leggere, medie con DES max +2, pesanti a valore fisso), scudo +2, bonus magico, requisito di Forza e svantaggio in Furtività, Difesa senza Armatura di Barbaro e Monaco, tabella armi con TpC automatico, monete, inventario |
-| **6. Incantesimi** | Visibile solo per gli incantatori. Caratteristica da incantatore, CD, bonus di attacco, slot per livello (incantatori completi, mezzi incantatori dal 2° livello, Magia del Patto del Warlock) |
+| **6. Incantesimi** | Visibile solo per gli incantatori. Caratteristica da incantatore, CD, bonus di attacco, slot per livello (incantatori completi, mezzi incantatori dal 2° livello, Magia del Patto del Warlock), **trucchetti e incantesimi scelti** da un elenco di circa 500 voci (vedi sotto) |
 | **7. Privilegi** | Privilegi di classe sbloccati livello per livello e risorse che scalano (usi dell'Ira, punti Ki, dadi dell'Attacco Furtivo…) |
 
 Inoltre: sezioni a fisarmonica con stato memorizzato, riepilogo fisso in alto, esportazione e importazione in JSON, layout responsive per mobile e desktop, stili di stampa.
@@ -33,6 +33,7 @@ js/
 ├── data/                       ← regole statiche di D&D 5E (solo dati)
 │   ├── abilities.js  skills.js  armors.js  classes.js
 │   ├── classFeatures.js  classResources.js  spellSlots.js
+│   ├── spells.js  spellNames.js  spellProgression.js   ← incantesimi (generated/spells.js da 5e.tools)
 │   └── classChoices/           ← scelte di classe: un file per classe + index.js
 ├── model/                      ← MODEL: stato e regole, nessun accesso al DOM
 │   ├── CharacterModel.js       ← unica fonte di verità, emette 'change'
@@ -120,6 +121,16 @@ Un file per classe in `js/data/classChoices/` (più `index.js`, che documenta tu
 | `text` | testo breve (Arcanum Mistico) | stringa, max 60 caratteri |
 
 Campi utili: `when: { key, in: [...] }` (la scelta esiste solo per certi valori di un'altra), `prereq: { level, choice: { key, value } }` sull'opzione, `differsFrom` (deve differire da un'altra scelta), `featureName` (riga di privilegi a cui aggiungere la scelta), `effects` sull'opzione (`acWithArmor`, `hpPerLevel`, `unarmoredDefense`, `spellcasting`) e `features: [livello, nome, descrizione, nameEn, descriptionEn]` per i privilegi della sottoclasse. Italiano e inglese sono obbligatori: `tests/i18n.test.js` fallisce se manca una traduzione. Le chiavi dello stato sono uniche tra le classi e i valori delle sottoclassi pure (lo verifica `tests/classChoices.test.js`); il default si genera dalle definizioni, quindi non serve toccare lo schema.
+
+### Trucchetti e incantesimi
+
+Nel pannello **Incantesimi** i pulsanti «Scegli trucchetti» e «Scegli incantesimi» aprono un popup (a schermo intero su telefono) con ricerca per nome in italiano o inglese, filtri per livello, rituali e concentrazione, e un tocco per aggiungere o togliere: le modifiche si salvano subito. Per ogni voce si vedono scuola, tempo di lancio, gittata, componenti, durata e il rimando al manuale («PHB, p. 241»); le descrizioni non sono copiate.
+
+- L'elenco proposto è la **lista della classe** (il Cavaliere Mistico e il Mistificatore Arcano usano quella del Mago); «Altre classi» allarga, e le aggiunte dei supplementi (Xanathar, Tasha…) compaiono quando si attiva quel manuale nel riquadro «Manuali».
+- «Tutti» mostra gli incantesimi fino al livello dei propri slot; «Oltre» quelli di livello superiore.
+- Il contatore (es. `3/4`) segue le tabelle del PHB: trucchetti e incantesimi conosciuti, oppure modificatore + livello per chi prepara (Chierico, Druido, Mago; Paladino con metà livello). È un'indicazione, non un blocco: diventa rosso se si supera il limite (talenti, regole della casa…).
+- Cambiando classe gli elenchi si svuotano (appartengono alla vecchia lista). I due campi di testo libero restano, nel riquadro «Altri incantesimi, a mano», per ciò che non è in elenco.
+- Nomi: in italiano solo quelli ufficiali già noti al progetto (`js/data/spellNames.js`), altrimenti il titolo inglese; la ricerca trova entrambi.
 
 ### Altri manuali (da 5e.tools)
 

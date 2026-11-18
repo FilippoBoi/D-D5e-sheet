@@ -59,7 +59,7 @@ export default {
         {
           value: 'eldritchKnight', label: 'Cavaliere Mistico', labelEn: 'Eldritch Knight',
           description: 'Maestria marziale e magia da mago (Intelligenza).', descriptionEn: 'Martial mastery with wizard magic (Intelligence).',
-          effects: { spellcasting: { ability: 'int', progression: 'third', minLevel: 3 } },
+          effects: { spellcasting: { ability: 'int', progression: 'third', minLevel: 3, list: 'wizard', table: 'eldritchKnight' } },
           features: [
             [3, 'Incantesimi', 'Lanci incantesimi da mago (soprattutto abiurazione ed evocazione) usando l\'Intelligenza: slot, CD e bonus sono nel pannello Incantesimi.',
               'Spellcasting', 'Cast wizard spells (mostly abjuration and evocation) using Intelligence: slots, DC and bonus are in the Spells panel.'],
