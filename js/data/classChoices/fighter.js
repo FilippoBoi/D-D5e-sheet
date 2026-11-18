@@ -1,6 +1,10 @@
 /**
- * Scelte del Guerriero: Stile di Combattimento (1°) e Archetipo Marziale (3° livello).
- * Manovre e stile extra del Campione arrivano nella fase C.
+ * Scelte del Guerriero: Stile di Combattimento (1°), Archetipo Marziale (3°), stile extra del Campione (10°),
+ * strumento e Manovre del Maestro di Battaglia (3 al 3°, +2 al 7°, 10° e 15°).
+ * Lo stile extra deve essere diverso dal primo (`differsFrom`).
+ *
+ * Da verificare i nomi italiani delle 16 manovre e degli strumenti da artigiano (solo fabbro, birraio e
+ * muratore sono già nel progetto, tra le scelte razziali del Nano).
  *
  * Effetti calcolabili: Maestro di Battaglia (dadi di superiorità e CD, in classResources.js);
  * Cavaliere Mistico (incantatore "a un terzo", INT, dal 3°).
@@ -11,6 +15,9 @@
  * "Carica Arcana". Confermati dal progetto: "Campione", "Maestro di Battaglia", "Cavaliere Mistico".
  */
 import { ALL_FIGHTING_STYLES, fightingStyleOptions } from './fightingStyles.js';
+
+const mv = (value, label, labelEn, description, descriptionEn) => ({ value, label, labelEn, description, descriptionEn });
+const tool = (value, label, labelEn) => ({ value, label: `Attrezzi da ${label}`, labelEn: `${labelEn}` });
 
 export default {
   choices: [
@@ -64,6 +71,56 @@ export default {
             [18, 'Magia da Guerra Migliorata', 'Dopo aver lanciato un incantesimo con un\'azione, puoi attaccare con un\'arma come azione bonus.', 'Improved War Magic', 'After casting a spell with an action, make a weapon attack as a bonus action.'],
           ],
         },
+      ],
+    },
+    {
+      key: 'fightingStyle2', type: 'single', minLevel: 10, differsFrom: 'fightingStyle', replacesFeature: true,
+      when: { key: 'subclass', in: ['champion'] },
+      featureName: 'Stile di Combattimento Aggiuntivo', featureNameEn: 'Additional Fighting Style',
+      label: 'Stile di Combattimento aggiuntivo', labelEn: 'Additional Fighting Style',
+      options: fightingStyleOptions(ALL_FIGHTING_STYLES),
+    },
+    {
+      key: 'studentTool', type: 'single', minLevel: 3,
+      when: { key: 'subclass', in: ['battleMaster'] },
+      featureName: 'Studente della Guerra', featureNameEn: 'Student of War',
+      label: 'Studente della Guerra: strumento', labelEn: 'Student of War: tool',
+      options: [
+        tool('alchemist', 'alchimista', 'Alchemist\'s supplies'), tool('brewer', 'birraio', 'Brewer\'s supplies'),
+        tool('calligrapher', 'calligrafo', 'Calligrapher\'s supplies'), tool('carpenter', 'carpentiere', 'Carpenter\'s tools'),
+        tool('cartographer', 'cartografo', 'Cartographer\'s tools'), tool('cobbler', 'calzolaio', 'Cobbler\'s tools'),
+        tool('cook', 'cuoco', 'Cook\'s utensils'), tool('glassblower', 'soffiatore di vetro', 'Glassblower\'s tools'),
+        tool('jeweler', 'gioielliere', 'Jeweler\'s tools'), tool('leatherworker', 'conciatore', 'Leatherworker\'s tools'),
+        tool('mason', 'muratore', 'Mason\'s tools'), tool('painter', 'pittore', 'Painter\'s supplies'),
+        tool('potter', 'vasaio', 'Potter\'s tools'), tool('smith', 'fabbro', 'Smith\'s tools'),
+        tool('tinker', 'stagnino', 'Tinker\'s tools'), tool('weaver', 'tessitore', 'Weaver\'s tools'),
+        tool('woodcarver', 'intagliatore', 'Woodcarver\'s tools'),
+      ],
+    },
+    {
+      key: 'maneuvers', type: 'multi', minLevel: 3, count: [[3, 3], [7, 5], [10, 7], [15, 9]],
+      when: { key: 'subclass', in: ['battleMaster'] },
+      featureName: 'Superiorità in Combattimento', featureNameEn: 'Combat Superiority',
+      label: 'Manovre', labelEn: 'Maneuvers',
+      hint: 'Ogni manovra spende un dado di superiorità; CD e dadi sono in Risorse di classe.',
+      hintEn: 'Each maneuver spends a superiority die; DC and dice are under Class resources.',
+      options: [
+        mv('commandersStrike', 'Colpo del Comandante', 'Commander\'s Strike', 'Rinunci a un attacco: un alleato attacca con la reazione, con il dado ai danni.', 'Forgo an attack: an ally attacks as a reaction, adding the die to damage.'),
+        mv('disarmingAttack', 'Attacco Disarmante', 'Disarming Attack', 'Dado ai danni; il bersaglio fa un TS su FOR o lascia cadere un oggetto.', 'Add the die to damage; the target makes a Strength save or drops an item.'),
+        mv('distractingStrike', 'Colpo Distraente', 'Distracting Strike', 'Dado ai danni; il prossimo attacco di un alleato contro il bersaglio ha vantaggio.', 'Add the die to damage; an ally\'s next attack against the target has advantage.'),
+        mv('evasiveFootwork', 'Gioco di Gambe Evasivo', 'Evasive Footwork', 'Muovendoti aggiungi il dado alla CA.', 'While moving, add the die to your AC.'),
+        mv('feintingAttack', 'Attacco Finto', 'Feinting Attack', 'Azione bonus: vantaggio al prossimo attacco, con il dado ai danni.', 'Bonus action: advantage on your next attack, adding the die to damage.'),
+        mv('goadingAttack', 'Attacco Provocatorio', 'Goading Attack', 'Dado ai danni; TS su SAG o il bersaglio ha svantaggio ad attaccare altri.', 'Add the die to damage; Wisdom save or the target has disadvantage attacking others.'),
+        mv('lungingAttack', 'Attacco in Affondo', 'Lunging Attack', 'Portata di +1,5 m per un attacco, con il dado ai danni.', '+5 feet of reach for one attack, adding the die to damage.'),
+        mv('maneuveringAttack', 'Attacco Manovrato', 'Maneuvering Attack', 'Dado ai danni; un alleato si muove con la reazione senza provocare.', 'Add the die to damage; an ally moves as a reaction without provoking.'),
+        mv('menacingAttack', 'Attacco Minaccioso', 'Menacing Attack', 'Dado ai danni; TS su SAG o il bersaglio è spaventato.', 'Add the die to damage; Wisdom save or the target is frightened.'),
+        mv('parry', 'Parata', 'Parry', 'Reazione: riduci i danni subiti del dado + mod. DES.', 'Reaction: reduce damage taken by the die + Dexterity modifier.'),
+        mv('precisionAttack', 'Attacco di Precisione', 'Precision Attack', 'Aggiungi il dado a un tiro per colpire.', 'Add the die to an attack roll.'),
+        mv('pushingAttack', 'Attacco Spintonante', 'Pushing Attack', 'Dado ai danni; TS su FOR o il bersaglio è spinto di 4,5 m.', 'Add the die to damage; Strength save or the target is pushed 15 feet.'),
+        mv('rally', 'Incitamento', 'Rally', 'Azione bonus: un alleato ottiene PF temporanei pari al dado + mod. CAR.', 'Bonus action: an ally gains temporary HP equal to the die + Charisma modifier.'),
+        mv('riposte', 'Risposta', 'Riposte', 'Reazione: se una creatura ti manca, la attacchi con il dado ai danni.', 'Reaction: when a creature misses you, attack it, adding the die to damage.'),
+        mv('sweepingAttack', 'Attacco Spazzante', 'Sweeping Attack', 'Se colpisci, una seconda creatura adiacente subisce danni pari al dado.', 'On a hit, a second adjacent creature takes damage equal to the die.'),
+        mv('tripAttack', 'Attacco a Sgambetto', 'Trip Attack', 'Dado ai danni; TS su FOR o il bersaglio cade prono.', 'Add the die to damage; Strength save or the target is knocked prone.'),
       ],
     },
   ],

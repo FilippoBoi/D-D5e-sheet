@@ -1,7 +1,7 @@
 /**
  * Scelte del Ranger: Nemico Prescelto ed Esploratore Nato (1°), Stile di Combattimento (2°),
  * Archetipo Ranger (3° livello). Livelli dalla fonte: nemici a 1°, 6°, 14°; terreni a 1°, 6°, 10°.
- * Le scelte del Cacciatore (3°/7°/11°/15°) arrivano nella fase C: qui sono privilegi descrittivi.
+ * Cacciatore: una scelta a 3°, 7°, 11° e 15° livello (descrittive).
  *
  * Da verificare: "Compagno del Ranger", "Addestramento Eccezionale", "Furia Bestiale",
  * "Condivisione degli Incantesimi", "Preda del Cacciatore", "Tattiche Difensive", "Attacco Multiplo",
@@ -14,6 +14,10 @@
 import { fightingStyleOptions } from './fightingStyles.js';
 
 const opt = (value, label, labelEn) => ({ value, label, labelEn });
+const feat = (value, label, labelEn, description, descriptionEn) => ({ value, label, labelEn, description, descriptionEn });
+const hunter = (key, minLevel, featureName, featureNameEn, label, labelEn, options) => ({
+  key, type: 'single', minLevel, when: { key: 'subclass', in: ['hunter'] }, featureName, featureNameEn, label, labelEn, options,
+});
 
 export default {
   choices: [
@@ -78,5 +82,24 @@ export default {
         },
       ],
     },
+    hunter('huntersPrey', 3, 'Preda del Cacciatore', 'Hunter\'s Prey', 'Preda del Cacciatore', 'Hunter\'s Prey', [
+      feat('colossusSlayer', 'Assassino di Colossi', 'Colossus Slayer', '+1d8 danni una volta per turno a un bersaglio sotto il massimo dei PF.', '+1d8 damage once per turn to a target below its maximum HP.'),
+      feat('giantKiller', 'Ammazzagiganti', 'Giant Killer', 'Reazione: attacchi una creatura Grande o più grande che ti attacca da 1,5 m.', 'Reaction: attack a Large or larger creature within 5 feet that attacks you.'),
+      feat('hordeBreaker', 'Spezzatore di Orde', 'Horde Breaker', 'Una volta per turno, un attacco extra con la stessa arma contro un\'altra creatura vicina.', 'Once per turn, make an extra attack with the same weapon against a different nearby creature.'),
+    ]),
+    hunter('defensiveTactics', 7, 'Tattiche Difensive', 'Defensive Tactics', 'Tattiche Difensive', 'Defensive Tactics', [
+      feat('escapeHorde', 'Fuga dalla Orda', 'Escape the Horde', 'Gli attacchi di opportunità contro di te hanno svantaggio.', 'Opportunity attacks against you have disadvantage.'),
+      feat('multiattackDefense', 'Difesa Multiattacco', 'Multiattack Defense', 'Dopo essere colpito, +4 alla CA contro gli attacchi successivi di quella creatura nel turno.', 'After being hit, +4 AC against that creature\'s later attacks this turn.'),
+      feat('steelWill', 'Volontà d\'Acciaio', 'Steel Will', 'Vantaggio ai TS contro la paura.', 'Advantage on saves against being frightened.'),
+    ]),
+    hunter('multiattack', 11, 'Attacco Multiplo', 'Multiattack', 'Attacco Multiplo', 'Multiattack', [
+      feat('volley', 'Raffica', 'Volley', 'Azione: un attacco a distanza contro ogni creatura entro 3 m da un punto.', 'Action: a ranged attack against every creature within 10 feet of a point.'),
+      feat('whirlwindAttack', 'Attacco a Turbine', 'Whirlwind Attack', 'Azione: un attacco in mischia contro ogni creatura entro 1,5 m.', 'Action: a melee attack against every creature within 5 feet.'),
+    ]),
+    hunter('superiorDefense', 15, 'Difesa Superiore del Cacciatore', 'Superior Hunter\'s Defense', 'Difesa Superiore del Cacciatore', 'Superior Hunter\'s Defense', [
+      feat('evasion', 'Elusione', 'Evasion', 'TS su DES riusciti: nessun danno; falliti: metà.', 'Successful Dexterity saves: no damage; failed: half.'),
+      feat('standAgainstTide', 'Resistere alla Marea', 'Stand Against the Tide', 'Reazione: un attacco in mischia mancato viene ripetuto contro un\'altra creatura.', 'Reaction: a missed melee attack is repeated against another creature.'),
+      feat('uncannyDodge', 'Schivata Prodigiosa', 'Uncanny Dodge', 'Reazione: dimezzi i danni di un attacco che ti colpisce.', 'Reaction: halve the damage of an attack that hits you.'),
+    ]),
   ],
 };

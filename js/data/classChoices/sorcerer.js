@@ -1,6 +1,9 @@
 /**
- * Scelte dello Stregone: Origine Stregonesca (1° livello) e ascendenza draconica.
- * La Metamagia (3°, 10°, 17°) arriva nella fase C.
+ * Scelte dello Stregone: Origine Stregonesca (1° livello), ascendenza draconica e
+ * Metamagia (2 opzioni al 3°, +1 al 10°, +1 al 17°).
+ *
+ * Termini Metamagia da verificare sul PHB italiano: "Incantesimo Accurato/Distante/Potenziato/Esteso/
+ * Intensificato/Rapido/Sottile/Gemello".
  *
  * Effetti calcolabili: Resilienza Draconica = +1 PF massimi per livello (PF suggeriti) e,
  * senza armatura, CA 13 + DES (riusa il meccanismo `unarmoredDefense`, base 13, senza caratteristica).
@@ -10,6 +13,8 @@
  * "Caos Controllato", "Bombardamento Magico". Confermati dal progetto: "Origine Stregonesca",
  * "Discendenza Draconica", "Magia Selvaggia".
  */
+const mm = (value, label, labelEn, description, descriptionEn) => ({ value, label, labelEn, description, descriptionEn });
+
 const dragon = (value, label, labelEn, type, typeEn) => ({
   value, label: `${label} (${type})`, labelEn: `${labelEn} (${typeEn})`,
   description: `Tipo di danno: ${type.toLowerCase()}.`, descriptionEn: `Damage type: ${typeEn.toLowerCase()}.`,
@@ -68,6 +73,23 @@ export default {
         dragon('red', 'Rosso', 'Red', 'Fuoco', 'Fire'),
         dragon('silver', 'Argento', 'Silver', 'Freddo', 'Cold'),
         dragon('white', 'Bianco', 'White', 'Freddo', 'Cold'),
+      ],
+    },
+    {
+      key: 'metamagic', type: 'multi', minLevel: 3, replacesFeature: true,
+      count: [[3, 2], [10, 3], [17, 4]],
+      label: 'Metamagia', labelEn: 'Metamagic',
+      hint: 'Opzioni per modificare gli incantesimi spendendo punti stregoneria.',
+      hintEn: 'Options to alter your spells by spending sorcery points.',
+      options: [
+        mm('careful', 'Incantesimo Accurato', 'Careful Spell', '1 punto: fino a CAR creature superano automaticamente il TS contro il tuo incantesimo.', '1 point: up to Charisma-modifier creatures automatically succeed on the save against your spell.'),
+        mm('distant', 'Incantesimo Distante', 'Distant Spell', '1 punto: gittata raddoppiata (tocco: 9 m).', '1 point: double the range (touch becomes 30 feet).'),
+        mm('empowered', 'Incantesimo Potenziato', 'Empowered Spell', '1 punto: ritiri fino a CAR dadi di danno.', '1 point: reroll up to Charisma-modifier damage dice.'),
+        mm('extended', 'Incantesimo Esteso', 'Extended Spell', '1 punto: durata raddoppiata (massimo 24 ore).', '1 point: double the duration (max 24 hours).'),
+        mm('heightened', 'Incantesimo Intensificato', 'Heightened Spell', '3 punti: un bersaglio ha svantaggio al primo TS.', '3 points: one target has disadvantage on its first save.'),
+        mm('quickened', 'Incantesimo Rapido', 'Quickened Spell', '2 punti: tempo di lancio da azione ad azione bonus.', '2 points: change casting time from an action to a bonus action.'),
+        mm('subtle', 'Incantesimo Sottile', 'Subtle Spell', '1 punto: nessuna componente verbale o somatica.', '1 point: no verbal or somatic components.'),
+        mm('twinned', 'Incantesimo Gemello', 'Twinned Spell', 'Punti pari al livello dell\'incantesimo (1 per un trucchetto): un secondo bersaglio.', 'Points equal to the spell\'s level (1 for a cantrip): target a second creature.'),
       ],
     },
   ],

@@ -1,13 +1,19 @@
 /**
  * Scelte del Barbaro: Cammino Primordiale (3° livello), PHB, da 5e.tools.
- * Spirito totemico (3°), aspetto (6°) e sintonia (14°) arrivano nella fase C:
- * qui compaiono come privilegi descrittivi.
+ * Guerriero Totemico: spirito totemico (3°), aspetto della bestia (6°) e sintonia totemica (14°),
+ * ciascuno a scelta tra orso, aquila e lupo (anche lo stesso animale), descrittivi.
  *
  * Termini da verificare sul PHB italiano: "Frenesia", "Ira Irrazionale", "Presenza Intimidatoria",
  * "Rappresaglia", "Cercatore di Spiriti", "Spirito Totemico", "Aspetto della Bestia",
  * "Camminatore degli Spiriti", "Sintonia Totemica". Confermati dal progetto: "Cammino Primordiale",
  * "Berserker", "Guerriero Totemico".
  */
+const animal = (value, label, labelEn, description, descriptionEn) => ({ value, label, labelEn, description, descriptionEn });
+const totem = (key, minLevel, featureName, featureNameEn, label, labelEn, options) => ({
+  key, type: 'single', minLevel, when: { key: 'subclass', in: ['totemWarrior'] },
+  featureName, featureNameEn, label, labelEn, options,
+});
+
 export default {
   choices: [
     {
@@ -41,5 +47,20 @@ export default {
         },
       ],
     },
+    totem('totemSpirit', 3, 'Spirito Totemico', 'Totem Spirit', 'Spirito totemico', 'Totem spirit', [
+      animal('bear', 'Orso', 'Bear', 'In ira hai resistenza a tutti i danni tranne psichici.', 'While raging, resistance to all damage except psychic.'),
+      animal('eagle', 'Aquila', 'Eagle', 'In ira, senza armatura pesante: gli attacchi di opportunità contro di te hanno svantaggio e Scattare è un\'azione bonus.', 'While raging without heavy armor: opportunity attacks against you have disadvantage and you can Dash as a bonus action.'),
+      animal('wolf', 'Lupo', 'Wolf', 'In ira, i tuoi alleati hanno vantaggio in mischia contro i nemici entro 1,5 m da te.', 'While raging, allies have advantage on melee attacks against enemies within 5 feet of you.'),
+    ]),
+    totem('totemAspect', 6, 'Aspetto della Bestia', 'Aspect of the Beast', 'Aspetto della bestia', 'Aspect of the beast', [
+      animal('bear', 'Orso', 'Bear', 'Capacità di carico raddoppiata e vantaggio alle prove di FOR per spingere, tirare, sollevare o rompere.', 'Doubled carrying capacity and advantage on Strength checks to push, pull, lift or break.'),
+      animal('eagle', 'Aquila', 'Eagle', 'Vedi fino a 1,6 km nei dettagli e penombra non ti dà svantaggio a Percezione.', 'See up to 1 mile in detail and dim light doesn\'t impose disadvantage on Perception.'),
+      animal('wolf', 'Lupo', 'Wolf', 'Segui le tracce a passo veloce e ti muovi furtivo a passo normale.', 'Track at a fast pace and move stealthily at a normal pace.'),
+    ]),
+    totem('totemAttunement', 14, 'Sintonia Totemica', 'Totemic Attunement', 'Sintonia totemica', 'Totemic attunement', [
+      animal('bear', 'Orso', 'Bear', 'In ira i nemici entro 1,5 m hanno svantaggio ad attaccare chiunque tranne te.', 'While raging, enemies within 5 feet have disadvantage attacking anyone but you.'),
+      animal('eagle', 'Aquila', 'Eagle', 'In ira hai velocità di volo pari alla velocità a terra (a brevi tratti).', 'While raging, flying speed equal to your walking speed (short bursts).'),
+      animal('wolf', 'Lupo', 'Wolf', 'In ira, azione bonus: atterri una creatura Grande o più piccola che colpisci in mischia.', 'While raging, bonus action: knock a Large or smaller creature prone when you hit it in melee.'),
+    ]),
   ],
 };

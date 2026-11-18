@@ -1,5 +1,5 @@
 /**
- * Scelte del Bardo: Collegio Bardico (3° livello). La Maestria (3° e 10°) arriva nella fase C.
+ * Scelte del Bardo: Collegio Bardico (3° livello) e Maestria (2 abilità al 3°, altre 2 al 10°).
  * Sapienza: tre abilità a scelta, concesse come competenze (calcolato).
  *
  * Da verificare: "Competenze Bonus", "Parole Taglienti", "Segreti Magici Aggiuntivi",
@@ -42,6 +42,12 @@ export default {
       featureName: 'Competenze Bonus', featureNameEn: 'Bonus Proficiencies',
       label: 'Sapienza: competenze bonus', labelEn: 'Lore: bonus proficiencies',
       hint: 'Tre abilità a tua scelta.', hintEn: 'Three skills of your choice.',
+    },
+    {
+      key: 'expertise', type: 'skills', mode: 'expertise', minLevel: 3, replacesFeature: true,
+      count: [[3, 2], [10, 4]],
+      label: 'Maestria', labelEn: 'Expertise',
+      hint: 'Abilità in cui sei competente.', hintEn: 'Skills you are proficient in.',
     },
   ],
 };
