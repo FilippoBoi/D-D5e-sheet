@@ -544,3 +544,6 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .sources__item { display: flex; gap: 0.5rem; align-items: center; min-height: 2rem; font-size: 0.9rem; }
 .sources__item small { color: var(--text-muted); }
 .sources__item input { flex: none; }
+
+.field__error { color: var(--gold); font-size: 0.8rem; }
+.field select[aria-invalid="true"] { border-color: var(--gold); }
