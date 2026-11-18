@@ -7,7 +7,8 @@
   "scripts": {
     "start": "npx --yes serve -l 8080 .",
     "test": "node --test",
-    "data": "node scripts/build-5etools-data.mjs"
+    "data": "node scripts/build-5etools-data.mjs",
+    "descriptions": "node scripts/build-descriptions.mjs"
   },
   "engines": {
     "node": ">=18"

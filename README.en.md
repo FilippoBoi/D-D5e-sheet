@@ -79,7 +79,9 @@ Every incoming value, whether from an input, from `localStorage` or from an impo
 
 ### Cantrips and spells
 
-In the **Spells** panel, “Choose cantrips” and “Choose spells” open a popup (full screen on phones) with search by Italian or English name, filters for level, rituals and concentration, and one tap to add or remove: changes are saved right away. Each entry shows school, casting time, range, components, duration and the sourcebook reference (“PHB, p. 241”); descriptions are not copied.
+In the **Spells** panel, “Choose cantrips” and “Choose spells” open a popup (full screen on phones) with search by Italian or English name, filters for level, rituals and concentration, and one tap to add or remove: changes are saved right away. Each entry shows school, casting time, range, components, duration and the sourcebook reference (“PHB, p. 241”).
+
+Every skill, cantrip and spell has an **“i”** button (in the skills list, on the sheet and in the picker popup) that opens its description in Italian or English, with a button to switch language. The texts come from the files in `docs/` (`skills-description.md`, `cantrips-description.md`, `spell-descriptions.md`): **SRD 5.1** text (CC BY 4.0) with an unofficial Italian translation, plus short original summaries for anything outside the SRD. After fixing a Markdown file, `npm run descriptions` regenerates `js/data/generated/skillDescriptions.js` and `spellDescriptions.js` (the latter, about 700 KB, is only downloaded the first time a description is opened). There is no feat list yet: feats stay in the free-text field.
 
 - The list offered is the **class spell list** (Eldritch Knight and Arcane Trickster use the Wizard list); “Other classes” widens it, and additions from supplements (Xanathar's, Tasha's…) appear once that book is turned on in “Sourcebooks”.
 - “All” shows spells up to the level of your slots; “Higher” shows the rest.
