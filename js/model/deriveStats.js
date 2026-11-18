@@ -260,6 +260,8 @@ export function deriveStats(state, { sources = null } = {}) {
     classChoices: classChoiceGroups,
     hasClassChoices: classChoiceGroups.length > 0,
     expertiseFromChoices: [...resolved.expertiseSkills],
+    // Abilità in cui la competenza arriva da razza, background, classe o scelte: spuntate e bloccate nella scheda.
+    proficientFromSources: SKILLS.map((s) => s.id).filter((id) => skillProficient(id) && !state.skills[id].proficient),
     hasAcItems: state.equipment.acItems.length > 0,
     className: loc(cls),
     featuresTitle: pick(`Privilegi di ${loc(cls)}`, `${loc(cls)} features`),
