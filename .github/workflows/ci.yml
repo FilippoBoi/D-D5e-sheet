@@ -47,3 +47,30 @@ jobs:
             psql -v ON_ERROR_STOP=1 -q -c "drop schema if exists public cascade; drop schema if exists auth cascade; create schema public;"
             psql -v ON_ERROR_STOP=1 -f supabase/tests/prepare.sql -f supabase/tests/fixtures/schema-$v.sql -f supabase/tests/legacy.sql -f supabase/schema.sql -f supabase/tests/security.sql
           done
+
+  # App Flutter (cartella flutter/): analisi, test di interfaccia e parità con il Model JS, build web.
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: I dati esportati sono aggiornati
+        run: |
+          npm run flutter:data
+          git diff --exit-code -- flutter/assets/data
+      - name: Casi di parità dal Model JS
+        run: npm run flutter:parity
+      - working-directory: flutter
+        run: flutter pub get
+      - working-directory: flutter
+        run: flutter analyze
+      - working-directory: flutter
+        run: flutter test
+      - working-directory: flutter
+        run: flutter build web --release --base-href /D-D5e-sheet/

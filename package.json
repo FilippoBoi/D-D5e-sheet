@@ -2,13 +2,30 @@
   "name": "dnd5e-character-sheet",
   "version": "1.0.0",
   "description": "Scheda personaggio interattiva per D&D 5E in HTML, CSS e JavaScript vanilla (architettura MVC).",
+  "license": "MIT",
+  "homepage": "https://filippoboi.github.io/D-D5e-sheet/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilippoBoi/D-D5e-sheet.git"
+  },
+  "keywords": [
+    "dnd",
+    "dnd5e",
+    "character-sheet",
+    "scheda-personaggio",
+    "italiano",
+    "vanilla-js",
+    "tabletop-rpg"
+  ],
   "private": true,
   "type": "module",
   "scripts": {
     "start": "npx --yes serve -l 8080 .",
     "test": "node --test",
     "data": "node scripts/build-5etools-data.mjs",
-    "descriptions": "node scripts/build-descriptions.mjs"
+    "descriptions": "node scripts/build-descriptions.mjs",
+    "flutter:data": "node scripts/export-flutter-data.mjs",
+    "flutter:parity": "node scripts/make-parity-fixtures.mjs"
   },
   "engines": {
     "node": ">=18"

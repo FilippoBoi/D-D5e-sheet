@@ -6,6 +6,8 @@ Scheda personaggio interattiva per **Dungeons & Dragons 5ª Edizione**, scritta 
 
 **▶ Prova online:** <https://filippoboi.github.io/D-D5e-sheet/>
 
+> **Novità: app Flutter.** In [`flutter/`](flutter/README.md) c'è la stessa scheda riscritta in Flutter per Android, iOS, web e desktop, con gli stessi calcoli (verificati da un test di parità contro questa versione) e lo stesso formato di salvataggio. Questa versione web resta invariata.
+
 ## Funzionalità
 
 | Sezione | Cosa fa |
@@ -126,7 +128,7 @@ Campi utili: `when: { key, in: [...] }` (la scelta esiste solo per certi valori 
 
 Nel pannello **Incantesimi** i pulsanti «Scegli trucchetti» e «Scegli incantesimi» aprono un popup (a schermo intero su telefono) con ricerca per nome in italiano o inglese, filtri per livello, rituali e concentrazione, e un tocco per aggiungere o togliere: le modifiche si salvano subito. Per ogni voce si vedono scuola, tempo di lancio, gittata, componenti, durata e il rimando al manuale («PHB, p. 241»).
 
-Ogni abilità, trucchetto e incantesimo ha un pulsante **«i»** (sulla scheda, nell'elenco delle abilità e nel popup di scelta) che apre la descrizione in italiano o inglese, con un tasto per passare all'altra lingua. I testi vengono dai file in `docs/` (`skills-description.md`, `cantrips-description.md`, `spell-descriptions.md`): testo **SRD 5.1** (CC BY 4.0) con traduzione italiana non ufficiale, e brevi riassunti originali per ciò che è fuori dall'SRD. Dopo aver corretto un Markdown, `npm run descriptions` rigenera `js/data/generated/skillDescriptions.js` e `spellDescriptions.js` (il secondo, circa 700 KB, si scarica solo alla prima descrizione aperta). Non esiste ancora un elenco dei talenti: restano nel campo di testo libero.
+Ogni abilità, trucchetto e incantesimo ha un pulsante **«i»** (sulla scheda, nell'elenco delle abilità e nel popup di scelta) che apre la descrizione nella lingua dell'interfaccia (con ripiego sull'italiano). I testi vengono dai file in `docs/` (`skills-description.md`, `cantrips-description.md`, `spell-descriptions.md`): testo **SRD 5.1** (CC BY 4.0) con traduzione italiana non ufficiale, e brevi riassunti originali per ciò che è fuori dall'SRD. Dopo aver corretto un Markdown, `npm run descriptions` rigenera `js/data/generated/skillDescriptions.js` e `spellDescriptions.js` (il secondo, circa 700 KB, si scarica solo alla prima descrizione aperta). Non esiste ancora un elenco dei talenti: restano nel campo di testo libero. Per aggiungere una lingua: voce in `i18n.js`, bandiera in `FLAGS` di `scripts/build-descriptions.mjs` e un blocco per lingua nei Markdown; `tests/descriptions.test.js` elenca ciò che manca.
 
 - L'elenco proposto è la **lista della classe** (il Cavaliere Mistico e il Mistificatore Arcano usano quella del Mago); «Altre classi» allarga, e le aggiunte dei supplementi (Xanathar, Tasha…) compaiono quando si attiva quel manuale nel riquadro «Manuali».
 - «Tutti» mostra gli incantesimi fino al livello dei propri slot; «Oltre» quelli di livello superiore.
@@ -256,6 +258,10 @@ Senza collaborazione online i dati restano solo nel `localStorage` del browser i
 - **Nuovo privilegio o classe**: modifica `js/data/classes.js` e `js/data/classFeatures.js`.
 - **Nuovo campo**: aggiungi il valore di default in `characterSchema.js` e un input con `data-bind="percorso"` in `index.html`. Se serve una validazione, aggiungi una regola in `RULES`.
 - **Nuovo valore calcolato**: aggiungilo all'oggetto restituito da `deriveStats()` e mostralo con `data-out="percorso"`.
+
+## Licenza
+
+Il **codice** è rilasciato con licenza [MIT](LICENSE). I testi SRD 5.1 in `docs/` e nei dati generati sono © Wizards of the Coast, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode); la traduzione italiana è non ufficiale.
 
 ## Note legali
 

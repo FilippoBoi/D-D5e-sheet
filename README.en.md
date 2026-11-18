@@ -8,6 +8,8 @@ An interactive character sheet for **Dungeons & Dragons 5th Edition**, written i
 
 The interface is available in **Italian and English** (flag selector in the header). It follows your browser language by default.
 
+> **New: Flutter app.** [`flutter/`](flutter/README.md) holds the same sheet rewritten in Flutter for Android, iOS, web and desktop, with the same calculations (checked by a parity test against this version) and the same save format. This web version is unchanged.
+
 ## Features
 
 | Section | What it does |
@@ -81,7 +83,7 @@ Every incoming value, whether from an input, from `localStorage` or from an impo
 
 In the **Spells** panel, “Choose cantrips” and “Choose spells” open a popup (full screen on phones) with search by Italian or English name, filters for level, rituals and concentration, and one tap to add or remove: changes are saved right away. Each entry shows school, casting time, range, components, duration and the sourcebook reference (“PHB, p. 241”).
 
-Every skill, cantrip and spell has an **“i”** button (in the skills list, on the sheet and in the picker popup) that opens its description in Italian or English, with a button to switch language. The texts come from the files in `docs/` (`skills-description.md`, `cantrips-description.md`, `spell-descriptions.md`): **SRD 5.1** text (CC BY 4.0) with an unofficial Italian translation, plus short original summaries for anything outside the SRD. After fixing a Markdown file, `npm run descriptions` regenerates `js/data/generated/skillDescriptions.js` and `spellDescriptions.js` (the latter, about 700 KB, is only downloaded the first time a description is opened). There is no feat list yet: feats stay in the free-text field.
+Every skill, cantrip and spell has an **“i”** button (in the skills list, on the sheet and in the picker popup) that opens its description in the interface language (falling back to Italian). The texts come from the files in `docs/` (`skills-description.md`, `cantrips-description.md`, `spell-descriptions.md`): **SRD 5.1** text (CC BY 4.0) with an unofficial Italian translation, plus short original summaries for anything outside the SRD. After fixing a Markdown file, `npm run descriptions` regenerates `js/data/generated/skillDescriptions.js` and `spellDescriptions.js` (the latter, about 700 KB, is only downloaded the first time a description is opened). There is no feat list yet: feats stay in the free-text field. To add a language: an entry in `i18n.js`, its flag in `FLAGS` of `scripts/build-descriptions.mjs` and one block per language in the Markdown files; `tests/descriptions.test.js` lists what is missing.
 
 - The list offered is the **class spell list** (Eldritch Knight and Arcane Trickster use the Wizard list); “Other classes” widens it, and additions from supplements (Xanathar's, Tasha's…) appear once that book is turned on in “Sourcebooks”.
 - “All” shows spells up to the level of your slots; “Higher” shows the rest.
@@ -199,6 +201,10 @@ Without online collaboration your data stays only in the `localStorage` of the b
 - **New feature or class**: edit `js/data/classes.js` and `js/data/classFeatures.js`.
 - **New field**: add the default value in `characterSchema.js` and an input with `data-bind="path"` in `index.html`. If it needs validation, add a rule to `RULES`.
 - **New calculated value**: add it to the object returned by `deriveStats()` and show it with `data-out="path"`.
+
+## License
+
+The **code** is released under the [MIT](LICENSE) license. The SRD 5.1 texts in `docs/` and in the generated data are © Wizards of the Coast, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode); the Italian translation is unofficial.
 
 ## Legal notes
 
