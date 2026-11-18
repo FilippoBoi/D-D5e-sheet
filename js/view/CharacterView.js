@@ -348,15 +348,15 @@ export class CharacterView {
     const bind = `info.classChoices.${g.key}`;
     if (g.type === 'single' || g.type === 'text') {
       const control = g.type === 'text'
-        ? el('input', { type: 'text', autocomplete: 'off', maxlength: '60', dataset: { bind } })
-        : el('select', { dataset: { bind } }, [
+        ? el('input', { type: 'text', autocomplete: 'off', maxlength: '60', 'aria-describedby': `choice-${g.key}-desc`, dataset: { bind } })
+        : el('select', { 'aria-describedby': `choice-${g.key}-desc`, dataset: { bind } }, [
           el('option', { value: '', text: '—' }),
           ...g.options.map((o) => el('option', { value: o.value, text: o.label })),
         ]);
       return el('label', { class: 'field choice', dataset: { choice: g.key } }, [
         el('span', { class: 'field__label', text: g.label }),
         control,
-        el('small', { class: 'choice__desc', dataset: { role: 'desc' } }),
+        el('small', { class: 'choice__desc', id: `choice-${g.key}-desc`, dataset: { role: 'desc' } }),
       ]);
     }
 
@@ -368,17 +368,20 @@ export class CharacterView {
         lastGroup = o.group;
       }
       rows.push(el('label', { class: 'choice__opt', dataset: { search: `${o.label} ${o.note}`.toLowerCase(), group: o.group } }, [
-        el('input', { type: 'checkbox', dataset: { action: 'toggle-choice', choiceKey: g.key, choiceValue: o.value } }),
+        el('input', { type: 'checkbox', 'aria-describedby': `choice-${g.key}-${o.value}-note`, dataset: { action: 'toggle-choice', choiceKey: g.key, choiceValue: o.value } }),
         el('span', { class: 'choice__text' }, [
           el('span', { class: 'choice__name', text: o.label }),
-          el('small', { class: 'choice__note', dataset: { role: 'note' } }),
+          el('small', { class: 'choice__note', id: `choice-${g.key}-${o.value}-note`, dataset: { role: 'note' } }),
         ]),
       ]));
     }
     const list = el('div', { class: 'choice__list' }, rows);
-    const fieldset = el('fieldset', { class: 'choice choice--multi', dataset: { choice: g.key } }, [
+    const fieldset = el('fieldset', {
+      class: `choice choice--multi${g.searchable ? ' choice--long' : ''}`, dataset: { choice: g.key },
+      'aria-describedby': g.hint ? `choice-${g.key}-hint` : null,
+    }, [
       el('legend', { class: 'field__label', text: g.label }),
-      g.hint ? el('p', { class: 'hint', text: g.hint }) : null,
+      g.hint ? el('p', { class: 'hint', id: `choice-${g.key}-hint`, text: g.hint }) : null,
       el('p', { class: 'choice__count', 'aria-live': 'polite', dataset: { role: 'count' } }),
     ]);
     if (g.searchable) {
@@ -413,7 +416,7 @@ export class CharacterView {
       row.classList.toggle('choice__opt--disabled', o.disabled);
       row.querySelector('[data-role="note"]').textContent = o.note;
     });
-    part('count').textContent = `${g.selectedCount}/${g.count}`;
+    part('count').textContent = `${g.selectedCount}/${g.count} ${pick('scelte', 'chosen')}`;
     // Elementi memorizzati ma che non contano: si segnalano e si possono togliere (le caselle sono bloccate).
     const stale = [
       ...g.overflow.map((o) => ({ ...o, why: pick('oltre il limite', 'over the limit') })),
