@@ -24,7 +24,7 @@ const dmg = (type) => (DAMAGE[type] ? pick(...DAMAGE[type]) : type);
 const T = (it, en, di, de, extra = {}) => ({ it, en, di, de, ...extra });
 
 /** Libreria dei tratti, per chiave. */
-const TRAITS = {
+export const TRAITS = {
   draconicAncestry: T('Ascendenza draconica', 'Draconic Ancestry',
     'Scegli un tipo di drago: determina il danno del Soffio e la resistenza.', 'Pick a dragon type: it sets your Breath Weapon damage and resistance.'),
   breathWeapon: T('Soffio distruttivo', 'Breath Weapon',
@@ -122,7 +122,7 @@ const TRAITS = {
 };
 
 /** Chiavi dei tratti per razza del PHB (id di data/races.js e di generated/races.js). */
-const RACE_TRAITS = {
+export const RACE_TRAITS = {
   dragonborn: ['draconicAncestry', 'breathWeapon', 'damageResistance'],
   dwarf: ['dwarvenResilience', 'dwarvenCombatTraining', 'toolProficiency', 'stonecunning'],
   'phb-dwarf-hill': ['dwarvenResilience', 'dwarvenCombatTraining', 'toolProficiency', 'stonecunning', 'dwarvenToughness'],
