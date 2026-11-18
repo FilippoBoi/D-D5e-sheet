@@ -1,6 +1,6 @@
 // Layout adattivo: navigazione, sezioni, due colonne, testo ingrandito e bersagli di tocco.
 import 'package:dnd5e_sheet/data/catalog.dart';
-import 'package:dnd5e_sheet/ui/sheet_page.dart';
+import 'package:dnd5e_sheet/ui/sections.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -44,7 +44,6 @@ void main() {
     // Riavvio: stessa sezione.
     final saved = app.storage.loadUiState();
     expect(saved['@section'], 'gear');
-    await app.storage.saveObject('x', 1); // il mock è condiviso tra avvii
     final again = await boot(tester, size: tabletLandscape, prefs: {'dnd5e-character-sheet:ui': '{"@section":"gear"}'});
     expect(again.section, 'gear');
     expect(find.text('Equipaggiamento, Armature & Armi'), findsOneWidget);

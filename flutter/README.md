@@ -37,7 +37,7 @@ lib/
   data/catalog.dart   cataloghi (letti da assets/data/*.json)
   model/              logica pura: schema, calcoli, scelte di classe, razze, risorse, incantesimi, deriveStats
   auth/ net/ sync/    account, token, client RPC, sincronizzazione (stessa logica della versione web)
-  ui/                 pannelli (panels_*.dart), navigazione e sezioni (sheet_page.dart), note (panels_notes.dart),
+  ui/                 pannelli (panels_*.dart), navigazione (sheet_page.dart), sezioni (sections.dart), note (panels_notes.dart),
                       popup incantesimi, descrizioni, sessione
   app_controller.dart salvataggio, lingua, tema, scheda condivisa
   session_controller.dart  accesso e pannello del Master

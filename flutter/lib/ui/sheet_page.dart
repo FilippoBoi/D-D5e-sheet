@@ -7,14 +7,9 @@ import '../app_controller.dart';
 import '../i18n.dart';
 import '../model/utils.dart';
 import '../session_controller.dart';
+import 'sections.dart';
 import 'session_ui.dart';
-import 'panels_gear.dart';
-import 'panels_info.dart';
-import 'panels_lore.dart';
-import 'panels_notes.dart';
-import 'panels_play.dart';
 import 'theme.dart';
-import 'widgets.dart';
 
 /// Pausa prima di proporre i PF del nuovo livello (si può ancora ritoccare il numero).
 const _levelPromptDelay = Duration(milliseconds: 900);
@@ -149,224 +144,117 @@ class _SheetPageState extends State<SheetPage> {
         listenable: Listenable.merge([app, app.model, ?widget.session]),
         builder: (context, _) {
           final d = app.model.derived;
-          final c = context.colors;
           final isCaster = (d['spellcasting'] as Json)['isCaster'] == true;
-          final platformDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
           final sections = [for (final s in Section.values) if (s != Section.spells || isCaster) s];
           final current = sections.firstWhere((s) => s.name == app.section, orElse: () => Section.play);
           final width = MediaQuery.sizeOf(context).width;
           final wide = width >= railBreakpoint;
-          final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-          // Il riepilogo cresce col testo ingrandito, entro un limite.
-          final quickHeight = MediaQuery.textScalerOf(context).scale(56).clamp(56.0, 96.0);
+          // Con la tastiera aperta la barra in basso toglie spazio al testo: si nasconde finché si scrive.
+          final showBottomBar = !wide && MediaQuery.viewInsetsOf(context).bottom == 0;
 
           final content = SafeArea(
             // La barra in basso e quella laterale gestiscono già i propri margini.
             top: false,
-            child: _SectionBody(app: app, session: widget.session, section: current, isCaster: isCaster),
+            child: SectionBody(app: app, session: widget.session, section: current),
           );
-
           final scaffold = Scaffold(
-            appBar: AppBar(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              title: Text(tr('Scheda Personaggio'), maxLines: 1, overflow: TextOverflow.ellipsis, style: displayStyle(context, size: 20)),
-              actions: [
-                for (final l in supportedLanguages)
-                  TextButton(
-                    onPressed: () => app.setLanguage(l.code),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: const EdgeInsets.symmetric(horizontal: 8), foregroundColor: app.language == l.code ? c.accentStrong : c.muted),
-                    child: Text(l.code.toUpperCase(), style: TextStyle(fontWeight: app.language == l.code ? FontWeight.w800 : FontWeight.w500)),
-                  ),
-                IconButton(tooltip: tr('Cambia tema (chiaro/scuro)'), icon: const Icon(Icons.brightness_6_outlined), onPressed: () => app.toggleTheme(platformDark)),
-                PopupMenuButton<String>(
-                  tooltip: tr('Azioni sulla scheda'),
-                  onSelected: (v) {
-                    switch (v) {
-                      case 'expand':
-                        app.setAllPanels(_panelIds, true);
-                      case 'collapse':
-                        app.setAllPanels(_panelIds, false);
-                      case 'export':
-                        _export();
-                      case 'import':
-                        _import();
-                      case 'reset':
-                        _reset();
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(value: 'expand', child: Text(tr('Espandi tutto'))),
-                    PopupMenuItem(value: 'collapse', child: Text(tr('Comprimi tutto'))),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(value: 'export', child: Text(tr('Esporta'))),
-                    PopupMenuItem(value: 'import', child: Text(tr('Importa'))),
-                    PopupMenuItem(value: 'reset', child: Text(tr('Reset'))),
-                  ],
-                ),
-              ],
-              bottom: PreferredSize(preferredSize: Size.fromHeight(quickHeight), child: _QuickBar(d: d, height: quickHeight)),
-            ),
+            appBar: _appBar(context, d),
             body: wide
                 ? Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    SafeArea(
-                      top: false,
-                      right: false,
-                      child: NavigationRail(
-                        key: const Key('nav-rail'),
-                        extended: width >= extendedRailBreakpoint,
-                        minExtendedWidth: 224,
-                        selectedIndex: sections.indexOf(current),
-                        onDestinationSelected: (i) => app.setSection(sections[i].name),
-                        labelType: width >= extendedRailBreakpoint ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-                        backgroundColor: Colors.transparent,
-                        destinations: [
-                          for (final s in sections)
-                            NavigationRailDestination(icon: Icon(s.icon), selectedIcon: Icon(s.selectedIcon), label: Text(s.label(long: true)), padding: const EdgeInsets.symmetric(vertical: 2)),
-                        ],
-                      ),
-                    ),
-                    VerticalDivider(width: 1, color: c.border),
+                    _rail(sections, current, extended: width >= extendedRailBreakpoint),
+                    VerticalDivider(width: 1, color: context.colors.border),
                     Expanded(child: content),
                   ])
                 : content,
-            // Con la tastiera aperta la barra in basso toglie spazio al testo: si nasconde finché si scrive.
-            bottomNavigationBar: wide || keyboardOpen
-                ? null
-                : NavigationBar(
-                    key: const Key('nav-bar'),
-                    selectedIndex: sections.indexOf(current),
-                    onDestinationSelected: (i) => app.setSection(sections[i].name),
-                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                    destinations: [
-                      for (final s in sections) NavigationDestination(icon: Icon(s.icon), selectedIcon: Icon(s.selectedIcon), label: s.label(), tooltip: s.label(long: true)),
-                    ],
-                  ),
+            bottomNavigationBar: showBottomBar ? _bottomBar(context, sections, current) : null,
           );
           return widget.session == null ? scaffold : SessionDialogs(session: widget.session!, child: scaffold);
         },
       );
-}
 
-/// Sotto questa larghezza (px logici) la navigazione sta in basso; da qui in su è una barra laterale.
-const railBreakpoint = 840.0;
-
-/// Da questa larghezza la barra laterale mostra anche le etichette accanto alle icone.
-const extendedRailBreakpoint = 1200.0;
-
-/// Sotto questa larghezza dell'area di contenuto la sezione Gioco sta su una sola colonna.
-const twoColumnBreakpoint = 700.0;
-
-/// Sezioni di navigazione. L'id (`name`) si salva come ultima sezione aperta.
-enum Section {
-  play(Icons.shield_outlined, Icons.shield),
-  spells(Icons.auto_awesome_outlined, Icons.auto_awesome),
-  features(Icons.military_tech_outlined, Icons.military_tech),
-  gear(Icons.backpack_outlined, Icons.backpack),
-  notes(Icons.edit_note_outlined, Icons.edit_note),
-  info(Icons.person_outline, Icons.person);
-
-  const Section(this.icon, this.selectedIcon);
-  final IconData icon;
-  final IconData selectedIcon;
-
-  /// Etichetta breve (barra in basso) o completa (barra laterale estesa, tooltip).
-  String label({bool long = false}) => switch (this) {
-        play => tr('Gioco'),
-        spells => tr('Incantesimi'),
-        features => long ? tr('Privilegi e risorse') : tr('Privilegi'),
-        gear => long ? tr('Equipaggiamento') : tr('Equip.'),
-        notes => tr('Note'),
-        info => long ? tr('Informazioni') : tr('Info'),
-      };
-}
-
-/// Contenuto della sezione scelta: i pannelli esistenti, ricomposti.
-class _SectionBody extends StatelessWidget {
-  const _SectionBody({required this.app, required this.session, required this.section, required this.isCaster});
-  final AppController app;
-  final SessionController? session;
-  final Section section;
-  final bool isCaster;
-
-  Widget _panel(String id, String title, Widget body) => Panel(
-        key: ValueKey('$id-${app.panelsGeneration}'), id: id, title: title,
-        open: app.panelOpen(id, defaultOpen: true), onToggle: (v) => app.setPanelOpen(id, v), children: [body],
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    if (section == Section.notes) return NotesSection(app: app);
-
-    final sessionBar = session == null ? <Widget>[] : [SessionBar(session: session!, character: app.model.state['info'] as Json), const SizedBox(height: 8)];
-    const gap = SizedBox(height: 12);
-    final footer = [
-      const SizedBox(height: 20),
-      Center(child: Text(tr('Dati salvati solo nel tuo browser. Progetto non ufficiale basato sulle regole di D&D 5E.'), style: TextStyle(fontSize: 12, color: c.muted), textAlign: TextAlign.center)),
-    ];
-    final List<Widget> children;
-    var maxWidth = 980.0;
-    switch (section) {
-      case Section.play:
-        maxWidth = 1280;
-        children = [
-          _TwoColumns(
-            left: [
-              _panel('combat', tr('Combattimento & Punti Ferita'), CombatPanel(app: app)),
-              gap,
-              _panel('abilities', tr('Caratteristiche & Tiri Salvezza'), AbilitiesPanel(app: app)),
-            ],
-            right: [_panel('skills', tr('Abilità'), SkillsPanel(app: app))],
-          ),
-        ];
-      case Section.spells:
-        children = [_panel('spells', tr('Incantesimi & Trucchetti'), SpellsPanel(app: app))];
-      case Section.features:
-        children = [_panel('features', tr('Privilegi, Tratti & Capacità di Classe'), FeaturesPanel(app: app))];
-      case Section.gear:
-        children = [_panel('equipment', tr('Equipaggiamento, Armature & Armi'), EquipmentPanel(app: app))];
-      case Section.info:
-        children = [
-          _panel('info', tr('Informazioni Generali & Classe'), InfoPanel(app: app)),
-          gap,
-          _panel('languages', tr('Linguaggi'), LanguagesPanel(app: app)),
-        ];
-      case Section.notes:
-        children = const [];
-    }
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: ListView(
-          // Una chiave per sezione: ogni sezione ricorda la propria posizione di scorrimento solo finché è aperta.
-          key: Key('sheet-list-${section.name}'),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
-          children: [...sessionBar, ...children, ...footer],
+  PreferredSizeWidget _appBar(BuildContext context, Json derived) {
+    // Il riepilogo cresce col testo ingrandito, entro un limite.
+    final quickHeight = MediaQuery.textScalerOf(context).scale(56).clamp(56.0, 96.0);
+    return AppBar(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      title: Text(tr('Scheda Personaggio'), maxLines: 1, overflow: TextOverflow.ellipsis, style: displayStyle(context, size: 20)),
+      actions: [
+        for (final l in supportedLanguages) _languageButton(context, l),
+        IconButton(
+          tooltip: tr('Cambia tema (chiaro/scuro)'),
+          icon: const Icon(Icons.brightness_6_outlined),
+          onPressed: () => app.toggleTheme(MediaQuery.platformBrightnessOf(context) == Brightness.dark),
         ),
-      ),
+        _actionsMenu(),
+      ],
+      bottom: PreferredSize(preferredSize: Size.fromHeight(quickHeight), child: _QuickBar(d: derived, height: quickHeight)),
     );
   }
-}
 
-/// Due colonne affiancate quando c'è spazio, altrimenti una sotto l'altra.
-class _TwoColumns extends StatelessWidget {
-  const _TwoColumns({required this.left, required this.right});
-  final List<Widget> left;
-  final List<Widget> right;
+  Widget _languageButton(BuildContext context, AppLanguage l) {
+    final c = context.colors;
+    final selected = app.language == l.code;
+    return TextButton(
+      onPressed: () => app.setLanguage(l.code),
+      style: TextButton.styleFrom(minimumSize: const Size(48, 48), padding: const EdgeInsets.symmetric(horizontal: 8), foregroundColor: selected ? c.accentStrong : c.muted),
+      child: Text(l.code.toUpperCase(), style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w500)),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-        if (box.maxWidth < twoColumnBreakpoint) {
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [...left, const SizedBox(height: 12), ...right]);
-        }
-        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: left)),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: right)),
-        ]);
-      });
+  Widget _actionsMenu() => PopupMenuButton<String>(
+        tooltip: tr('Azioni sulla scheda'),
+        onSelected: (v) {
+          switch (v) {
+            case 'expand':
+              app.setAllPanels(_panelIds, true);
+            case 'collapse':
+              app.setAllPanels(_panelIds, false);
+            case 'export':
+              _export();
+            case 'import':
+              _import();
+            case 'reset':
+              _reset();
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'expand', child: Text(tr('Espandi tutto'))),
+          PopupMenuItem(value: 'collapse', child: Text(tr('Comprimi tutto'))),
+          const PopupMenuDivider(),
+          PopupMenuItem(value: 'export', child: Text(tr('Esporta'))),
+          PopupMenuItem(value: 'import', child: Text(tr('Importa'))),
+          PopupMenuItem(value: 'reset', child: Text(tr('Reset'))),
+        ],
+      );
+
+  /// Barra laterale (schermi larghi); da 1200 px con le etichette accanto alle icone.
+  Widget _rail(List<Section> sections, Section current, {required bool extended}) => SafeArea(
+        top: false,
+        right: false,
+        child: NavigationRail(
+          key: const Key('nav-rail'),
+          extended: extended,
+          minExtendedWidth: 224,
+          selectedIndex: sections.indexOf(current),
+          onDestinationSelected: (i) => app.setSection(sections[i].name),
+          labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+          backgroundColor: Colors.transparent,
+          destinations: [
+            for (final s in sections)
+              NavigationRailDestination(icon: Icon(s.icon), selectedIcon: Icon(s.selectedIcon), label: Text(s.label(long: true)), padding: const EdgeInsets.symmetric(vertical: 2)),
+          ],
+        ),
+      );
+
+  Widget _bottomBar(BuildContext context, List<Section> sections, Section current) => NavigationBar(
+        key: const Key('nav-bar'),
+        selectedIndex: sections.indexOf(current),
+        onDestinationSelected: (i) => app.setSection(sections[i].name),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        destinations: [
+          for (final s in sections) NavigationDestination(icon: Icon(s.icon), selectedIcon: Icon(s.selectedIcon), label: s.label(), tooltip: s.label(long: true)),
+        ],
+      );
 }
 
 /// Riepilogo sempre visibile: CA, PF, iniziativa, competenza, TpC e CD.

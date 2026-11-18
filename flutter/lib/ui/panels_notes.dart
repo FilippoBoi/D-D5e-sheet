@@ -186,40 +186,8 @@ class _NotesSectionState extends State<NotesSection> {
     final builtin = shown.where((e) => e.builtin).toList();
     final custom = shown.where((e) => !e.builtin).toList();
 
-    Widget tile(_Entry e, {Widget? handle}) {
-      final selectedTile = e.id == selectedId;
-      final title = e.title.trim().isEmpty ? pick('Senza titolo', 'Untitled') : e.title;
-      final snippet = _snippet(e);
-      return Material(
-        key: ValueKey('note-${e.id}'),
-        color: selectedTile ? c.accentSoft : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => _select(e.id),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: Row(children: [
-                Icon(e.builtin ? Icons.push_pin_outlined : Icons.sticky_note_2_outlined, size: 20, color: c.accentStrong),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: e.title.trim().isEmpty && !e.builtin ? c.muted : null)),
-                      if (snippet.isNotEmpty) Text(snippet, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: c.muted)),
-                    ]),
-                  ),
-                ),
-                handle ?? const SizedBox(width: 12),
-              ]),
-            ),
-          ),
-        ),
-      );
-    }
+    Widget tile(_Entry e, {Widget? handle}) =>
+        _NoteTile(key: ValueKey('note-${e.id}'), entry: e, snippet: _snippet(e), selected: e.id == selectedId, onTap: () => _select(e.id), handle: handle);
 
     final reorderable = !searching && custom.length > 1;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -352,5 +320,53 @@ class _NotesSectionState extends State<NotesSection> {
         child: Text(pick('Si salva da solo · ${e.text.length}/$_maxNoteText caratteri', 'Saved automatically · ${e.text.length}/$_maxNoteText characters'), style: TextStyle(fontSize: 12, color: c.muted)),
       ),
     ]);
+  }
+}
+
+/// Riga dell'elenco: icona, titolo, anteprima del testo e (per le note libere) la maniglia di trascinamento.
+class _NoteTile extends StatelessWidget {
+  const _NoteTile({super.key, required this.entry, required this.snippet, required this.selected, required this.onTap, this.handle});
+  final _Entry entry;
+  final String snippet;
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget? handle;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final untitled = entry.title.trim().isEmpty;
+    return Material(
+      color: selected ? c.accentSoft : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 56),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Row(children: [
+              Icon(entry.builtin ? Icons.push_pin_outlined : Icons.sticky_note_2_outlined, size: 20, color: c.accentStrong),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      untitled ? pick('Senza titolo', 'Untitled') : entry.title,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontWeight: FontWeight.w700, color: untitled && !entry.builtin ? c.muted : null),
+                    ),
+                    if (snippet.isNotEmpty) Text(snippet, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: c.muted)),
+                  ]),
+                ),
+              ),
+              handle ?? const SizedBox(width: 12),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
