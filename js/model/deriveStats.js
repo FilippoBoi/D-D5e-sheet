@@ -6,13 +6,16 @@
  * In questo modo non esistono valori "duplicati" che possono andare fuori sincrono.
  */
 import { ABILITIES, getAbility } from '../data/abilities.js';
-import { ARMOR_CATEGORIES, MEDIUM_ARMOR_MAX_DEX, getArmor } from '../data/armors.js';
+import {
+  ARMOR_CATEGORIES, ARMOR_CATEGORIES_EN, MEDIUM_ARMOR_MAX_DEX, getArmor,
+} from '../data/armors.js';
 import { CLASS_STARTING, getClass } from '../data/classes.js';
 import { feetToMeters, getRace } from '../data/races.js';
 import { getClassFeatures } from '../data/classFeatures.js';
 import { getClassResources } from '../data/classResources.js';
 import { SKILLS } from '../data/skills.js';
 import { clamp, formatModifier } from '../core/utils.js';
+import { loc, pick } from '../i18n/i18n.js';
 import {
   abilityModifier, attackBonus, computeArmorClass, proficiencyBonus, skillBonus,
   spellAttackBonus, spellSaveDC, spellSlotsFor, suggestedMaxHp,
@@ -26,20 +29,21 @@ const uniqueValid = (values) => [...new Set(values.filter((v) => v))];
 /** Opzioni del menu a tendina per una scelta di caratteristica o abilità. */
 const abilityOptions = (exclude = []) => ABILITIES
   .filter((a) => !exclude.includes(a.id))
-  .map((a) => ({ value: a.id, label: a.name }));
+  .map((a) => ({ value: a.id, label: loc(a) }));
 const skillOptions = (ids = null) => SKILLS
   .filter((s) => !ids || ids.includes(s.id))
-  .map((s) => ({ value: s.id, label: s.name }));
+  .map((s) => ({ value: s.id, label: loc(s) }));
 
 function armorFormula(armor, unarmoredDefense) {
+  const dex = loc(getAbility('dex'), 'short');
   switch (armor.category) {
     case 'none':
       return unarmoredDefense
-        ? `10 + DES + ${getAbility(unarmoredDefense.ability).short}`
-        : '10 + DES';
-    case 'light': return `${armor.baseAC} + DES`;
-    case 'medium': return `${armor.baseAC} + DES (max +${MEDIUM_ARMOR_MAX_DEX})`;
-    default: return `${armor.baseAC} (fissa)`;
+        ? `10 + ${dex} + ${loc(getAbility(unarmoredDefense.ability), 'short')}`
+        : `10 + ${dex}`;
+    case 'light': return `${armor.baseAC} + ${dex}`;
+    case 'medium': return `${armor.baseAC} + ${dex} (max +${MEDIUM_ARMOR_MAX_DEX})`;
+    default: return `${armor.baseAC} (${pick('fissa', 'fixed')})`;
   }
 }
 
@@ -102,7 +106,7 @@ export function deriveStats(state) {
     magicBonus: state.equipment.magicBonus,
     mods,
     unarmoredDefense,
-    extraItems: state.equipment.acItems.map((item) => ({ label: item.name || 'Oggetto', value: item.bonus })),
+    extraItems: state.equipment.acItems.map((item) => ({ label: item.name || pick('Oggetto', 'Item'), value: item.bonus })),
   });
 
   // --- Incantesimi ---
@@ -123,24 +127,24 @@ export function deriveStats(state) {
   const features = getClassFeatures(cls.id, level);
   const resources = getClassResources(cls.id, level, mods);
 
-  const skillName = (id) => SKILLS.find((s) => s.id === id)?.name ?? id;
+  const skillName = (id) => (SKILLS.find((s) => s.id === id) ? loc(SKILLS.find((s) => s.id === id)) : id);
 
   // Menu a tendina per le scelte di razza (vuoto se la razza non ne ha)
   const raceChoices = [];
   if (raceChoice) {
     raceChoices.push(
-      { key: 'ability1', label: 'Aumento caratteristica 1', options: abilityOptions(raceChoice.exclude), value: state.info.raceChoices.ability1 },
-      { key: 'ability2', label: 'Aumento caratteristica 2', options: abilityOptions(raceChoice.exclude), value: state.info.raceChoices.ability2 },
+      { key: 'ability1', label: pick('Aumento caratteristica 1', 'Ability increase 1'), options: abilityOptions(raceChoice.exclude), value: state.info.raceChoices.ability1 },
+      { key: 'ability2', label: pick('Aumento caratteristica 2', 'Ability increase 2'), options: abilityOptions(raceChoice.exclude), value: state.info.raceChoices.ability2 },
     );
   }
   if (race?.skillChoice) {
     raceChoices.push(
-      { key: 'skill1', label: 'Abilità 1', options: skillOptions(), value: state.info.raceChoices.skill1 },
-      { key: 'skill2', label: 'Abilità 2', options: skillOptions(), value: state.info.raceChoices.skill2 },
+      { key: 'skill1', label: pick('Abilità 1', 'Skill 1'), options: skillOptions(), value: state.info.raceChoices.skill1 },
+      { key: 'skill2', label: pick('Abilità 2', 'Skill 2'), options: skillOptions(), value: state.info.raceChoices.skill2 },
     );
   }
   if (race?.option) {
-    raceChoices.push({ key: 'option', label: race.option.label, options: race.option.options, value: state.info.raceChoices.option });
+    raceChoices.push({ key: 'option', label: loc(race.option, 'label'), options: race.option.options.map((o) => ({ value: o.value, label: loc(o, 'label') })), value: state.info.raceChoices.option });
   }
 
   // Menu a tendina per le competenze di classe (una per scelta consentita)
@@ -152,25 +156,26 @@ export function deriveStats(state) {
 
   return {
     race: race ? {
-      name: race.name,
-      languages: race.languages,
-      traits: race.traits,
+      name: loc(race),
+      languages: loc(race, 'languages'),
+      traits: loc(race, 'traits'),
       bonuses: [
-        ...Object.entries(race.abilityBonuses).map(([id, v]) => `${getAbility(id).short} +${v}`),
-        ...(raceChoice ? [`${raceChoice.count} caratteristiche a scelta +${raceChoice.bonus}`] : []),
+        ...Object.entries(race.abilityBonuses).map(([id, v]) => `${loc(getAbility(id), 'short')} +${v}`),
+        ...(raceChoice ? [pick(`${raceChoice.count} caratteristiche a scelta +${raceChoice.bonus}`, `${raceChoice.count} abilities of your choice +${raceChoice.bonus}`)] : []),
       ].join(', '),
-      darkvision: race.darkvisionFt ? `${feetToMeters(race.darkvisionFt)} m` : 'Nessuna',
+      darkvision: race.darkvisionFt ? `${feetToMeters(race.darkvisionFt)} m` : pick('Nessuna', 'None'),
       choices: raceChoices,
     } : null,
     classInfo: {
-      armor: classStart.armor || 'Nessuna',
-      weapons: classStart.weapons,
-      tools: classStart.tools || 'Nessuno',
-      skillChoice: `Scegli ${classStart.skillChoice.count}: ${classStart.skillChoice.from.map(skillName).join(', ')}`,
+      armor: loc(classStart, 'armor') || pick('Nessuna', 'None'),
+      weapons: loc(classStart, 'weapons'),
+      tools: loc(classStart, 'tools') || pick('Nessuno', 'None'),
+      skillChoice: `${pick('Scegli', 'Choose')} ${classStart.skillChoice.count}: ${classStart.skillChoice.from.map(skillName).join(', ')}`,
       skillSlots: classSkillSlots,
     },
     hasAcItems: state.equipment.acItems.length > 0,
-    className: cls.name,
+    className: loc(cls),
+    featuresTitle: pick(`Privilegi di ${loc(cls)}`, `${loc(cls)} features`),
     hitDie: `d${cls.hitDie}`,
     profBonus,
     mods,
@@ -185,7 +190,7 @@ export function deriveStats(state) {
       .join(' · '),
 
     armor: {
-      category: ARMOR_CATEGORIES[armor.category],
+      category: pick(ARMOR_CATEGORIES, ARMOR_CATEGORIES_EN)[armor.category],
       formula: armorFormula(armor, armor.category === 'none' ? unarmoredDefense : null),
       strReq: armor.strReq,
       strengthWarning: armor.strReq > 0 && scores.str < armor.strReq,
@@ -204,7 +209,7 @@ export function deriveStats(state) {
 
     spellcasting: {
       isCaster,
-      abilityName: casting ? getAbility(casting.ability).name : '',
+      abilityName: casting ? loc(getAbility(casting.ability)) : '',
       dc: spellSaveDC(profBonus, castMod),
       attack: spellAttackBonus(profBonus, castMod),
       isPact: casting?.progression === 'pact',

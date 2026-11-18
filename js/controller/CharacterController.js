@@ -8,6 +8,8 @@
  * Non contiene regole di gioco (stanno nel Model) né manipolazione del DOM
  * (sta nella View): decide solo *chi* deve fare *cosa* e *quando*.
  */
+import { detectLang, isSupportedLang, pick, setLang } from '../i18n/i18n.js';
+
 const SAVE_DELAY_MS = 400;
 
 export class CharacterController {
@@ -32,7 +34,11 @@ export class CharacterController {
   }
 
   init() {
+    // Lingua: scelta salvata, altrimenti quella del browser.
+    const saved = this.#repository.loadLanguage();
+    setLang(isSupportedLang(saved) ? saved : detectLang(globalThis.navigator?.languages ?? []));
     this.#view.build(this.#catalogs);
+    this.#view.applyLanguage();
     this.#view.setPanelsState(this.#repository.loadUiState());
 
     this.#view.onFieldChange((path, value) => this.#model.set(path, value));
@@ -49,7 +55,7 @@ export class CharacterController {
     window.addEventListener('pagehide', () => this.#flushSave());
 
     if (!this.#repository.isAvailable) {
-      this.#view.showStatus('Salvataggio locale non disponibile in questo browser.');
+      this.#view.showStatus(pick('Salvataggio locale non disponibile in questo browser.', 'Local saving is not available in this browser.'));
     }
 
     this.#render();
@@ -72,13 +78,14 @@ export class CharacterController {
       'apply-suggested-hp': () => this.#model.applySuggestedHp(),
       'long-rest': () => {
         this.#model.longRest();
-        this.#view.showStatus('Riposo lungo completato.');
+        this.#view.showStatus(pick('Riposo lungo completato.', 'Long rest completed.'));
       },
       'expand-all': () => this.#view.setAllPanels(true),
       'collapse-all': () => this.#view.setAllPanels(false),
       'export': () => this.#exportJson(),
       'import': () => this.#view.openImportDialog(),
       'reset': () => this.#reset(),
+      'set-lang': () => this.#changeLanguage(data.lang),
     };
     handlers[action]?.();
   }
@@ -95,25 +102,32 @@ export class CharacterController {
 
   #exportJson() {
     const data = this.#model.toJSON();
-    const slug = (data.info.name || 'personaggio')
+    const slug = (data.info.name || pick('personaggio', 'character'))
       .toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-    this.#view.downloadJson(`${slug || 'personaggio'}.json`, data);
+    this.#view.downloadJson(`${slug || pick('personaggio', 'character')}.json`, data);
   }
 
   #importJson(text) {
     try {
       this.#model.load(JSON.parse(text));
-      this.#view.showStatus('Personaggio importato ✓');
+      this.#view.showStatus(pick('Personaggio importato ✓', 'Character imported ✓'));
     } catch {
-      this.#view.showStatus('File non valido: deve essere un JSON esportato da questa scheda.');
+      this.#view.showStatus(pick('File non valido: deve essere un JSON esportato da questa scheda.', 'Invalid file: it must be a JSON exported from this sheet.'));
     }
   }
 
+  #changeLanguage(code) {
+    if (!setLang(code)) return;
+    this.#repository.saveLanguage(code);
+    this.#view.applyLanguage();
+    this.#render();
+  }
+
   #reset() {
-    if (!this.#view.confirm('Cancellare tutti i dati del personaggio? L\'operazione non è reversibile.')) return;
+    if (!this.#view.confirm(pick('Cancellare tutti i dati del personaggio? L\'operazione non è reversibile.', 'Delete all character data? This cannot be undone.'))) return;
     this.#model.reset();
     this.#repository.clear();
   }
@@ -127,6 +141,6 @@ export class CharacterController {
     if (this.#saveTimer === null) return;
     clearTimeout(this.#saveTimer);
     this.#saveTimer = null;
-    if (this.#repository.save(this.#model.toJSON())) this.#view.showStatus('Salvato ✓');
+    if (this.#repository.save(this.#model.toJSON())) this.#view.showStatus(pick('Salvato ✓', 'Saved ✓'));
   }
 }

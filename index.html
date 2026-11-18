@@ -19,6 +19,14 @@
       <svg class="app-header__logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1 29 8.5v15L16 31 3 23.5v-15z"/><path class="cut" d="M16 7l7 12H9z"/></svg>
       <h1>Scheda Personaggio <span>D&amp;D 5E</span></h1>
     </div>
+    <div class="lang-switch" role="group" aria-label="Lingua">
+      <button type="button" class="lang-btn" data-action="set-lang" data-lang="it" lang="it" title="Italiano" aria-label="Italiano" aria-pressed="true">
+        <svg viewBox="0 0 3 2" aria-hidden="true" focusable="false"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#CE2B37"/></svg>
+      </button>
+      <button type="button" class="lang-btn" data-action="set-lang" data-lang="en" lang="en" title="English" aria-label="English" aria-pressed="false">
+        <svg viewBox="0 0 60 30" aria-hidden="true" focusable="false"><clipPath id="flag-uk-s"><path d="M0 0v30h60V0z"/></clipPath><clipPath id="flag-uk-t"><path d="M30 15h30v15zv15h-30zh-30v-15zv-15h30z"/></clipPath><g clip-path="url(#flag-uk-s)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-t)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>
+      </button>
+    </div>
     <nav class="toolbar" aria-label="Azioni sulla scheda">
       <button type="button" class="btn btn--ghost" data-action="expand-all">Espandi tutto</button>
       <button type="button" class="btn btn--ghost" data-action="collapse-all">Comprimi tutto</button>
@@ -273,7 +281,7 @@
           <h3 class="subhead">Risorse di classe</h3>
           <div class="resources" data-list="resources"></div>
         </div>
-        <h3 class="subhead">Privilegi di <span data-out="className"></span></h3>
+        <h3 class="subhead" data-out="featuresTitle"></h3>
         <ol class="features" data-list="features"></ol>
         <div class="grid grid--2">
           <label class="field"><span class="field__label">Tratti razziali &amp; talenti</span>

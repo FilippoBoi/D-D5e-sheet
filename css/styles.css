@@ -70,6 +70,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .app-header h1 span { color: var(--teal-strong); font-weight: 400; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+/* Selettore di lingua: una bandierina per lingua, quella attiva è evidenziata */
+.lang-switch { display: flex; gap: 0.4rem; margin-left: auto; }
+.lang-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.75rem; min-height: 2.75rem; padding: 0.4rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; opacity: 0.65;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+.lang-btn svg { display: block; width: 1.75rem; height: auto; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4); }
+.lang-btn:hover { opacity: 1; background: var(--card-raised); }
+.lang-btn[aria-pressed="true"] { opacity: 1; border-color: var(--teal-strong); background: var(--teal-soft); }
+.lang-btn:focus-visible { outline: 2px solid var(--teal-strong); outline-offset: 2px; }
 .save-status {
   width: 100%; font-size: 0.8rem; color: var(--text-muted); min-height: 1.2em;
   transition: opacity 0.3s;
@@ -413,7 +427,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---------- Stampa ---------- */
 @media print {
-  .toolbar, .quickbar, .hp__actions, .btn, .save-status { display: none !important; }
+  .toolbar, .lang-switch, .quickbar, .hp__actions, .btn, .save-status { display: none !important; }
   body { background: #fff; color: #000; }
   .panel { box-shadow: none; break-inside: avoid; }
 }

@@ -54,6 +54,16 @@ export class LocalStorageRepository {
     return this.#write(`${this.#key}:ui`, data);
   }
 
+  /** Lingua scelta dall'utente (preferenza dell'interfaccia, non parte del personaggio). */
+  loadLanguage() {
+    const value = this.#read(`${this.#key}:lang`);
+    return typeof value === 'string' ? value : null;
+  }
+
+  saveLanguage(code) {
+    return this.#write(`${this.#key}:lang`, code);
+  }
+
   #read(key) {
     try {
       const raw = this.#storage?.getItem(key);
