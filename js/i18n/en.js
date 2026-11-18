@@ -159,6 +159,16 @@ export const UI_EN = {
   'Competenze razziali': 'Racial proficiencies',
   'Tratti razziali': 'Racial traits',
   'Linguaggi': 'Languages',
+
+  // Navigazione dell'app Flutter (sezioni)
+  'Gioco': 'Play',
+  'Incantesimi': 'Spells',
+  'Privilegi': 'Features',
+  'Privilegi e risorse': 'Features & resources',
+  'Equip.': 'Gear',
+  'Note': 'Notes',
+  'Info': 'Info',
+  'Informazioni': 'Information',
   'Lingue conosciute:': 'Known languages:',
   'Le lingue di razza, background e classe si aggiungono da sole. Scegli qui sotto quelle a scelta e scrivi le altre apprese durante il gioco.':
     'Languages from your race, background and class are added automatically. Pick the ones you choose below and write any others learned in play.',

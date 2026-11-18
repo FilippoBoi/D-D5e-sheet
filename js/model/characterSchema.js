@@ -50,6 +50,23 @@ export function createWeapon() {
 }
 
 export const MAX_AC_ITEMS = 10;
+export const MAX_NOTES = 100;
+const MAX_NOTE_TITLE = 80;
+
+/** Nota libera con titolo (sessioni, PNG, luoghi, to-do…). Le note predefinite restano in notes.traits e notes.backstory. */
+export function createNote() {
+  return { id: createId(), title: '', text: '' };
+}
+
+function normalizeNote(raw, index, usedIds) {
+  const note = createNote();
+  if (!isPlainObject(raw)) return note;
+  note.title = sanitizeValue(`notes.items.${index}.title`, raw.title, note.title);
+  note.text = sanitizeValue(`notes.items.${index}.text`, raw.text, note.text);
+  if (typeof raw.id === 'string' && raw.id.length > 0 && raw.id.length <= 64 && !usedIds.has(raw.id)) note.id = raw.id;
+  usedIds.add(note.id);
+  return note;
+}
 
 export function createAcItem() {
   return { id: createId(), name: '', bonus: 0 };
@@ -100,7 +117,7 @@ export function createDefaultCharacter() {
       ...Object.fromEntries(Array.from({ length: MAX_LANGUAGE_PICKS }, (_, i) => [`pick${i + 1}`, ''])),
       other: '',
     },
-    notes: { traits: '', backstory: '' },
+    notes: { traits: '', backstory: '', items: [] },
   };
 }
 
@@ -123,6 +140,7 @@ const RULES = [
   }],
   [/^equipment\.acItems\.\d+\.name$/, (v) => v.slice(0, 80)],
   [/^equipment\.acItems\.\d+\.bonus$/, (v) => clampInt(v, -5, 10)],
+  [/^notes\.items\.\d+\.title$/, (v) => v.slice(0, MAX_NOTE_TITLE)],
   [/^abilities\.\w+$/, (v) => clampInt(v, 1, 30)],
   [/^combat\.hpMax$/, (v) => clampInt(v, 1, 999)],
   [/^combat\.(hpCurrent|hpTemp)$/, (v) => clampInt(v, 0, 999)],
@@ -227,6 +245,10 @@ export function normalizeCharacter(raw) {
     : [];
   state.equipment.acItems = Array.isArray(raw.equipment?.acItems)
     ? raw.equipment.acItems.slice(0, MAX_AC_ITEMS).map((item, i) => normalizeAcItem(item, i))
+    : [];
+  const noteIds = new Set();
+  state.notes.items = Array.isArray(raw.notes?.items)
+    ? raw.notes.items.slice(0, MAX_NOTES).map((n, i) => normalizeNote(n, i, noteIds))
     : [];
   state.spells.cantripIds = normalizeSpellIds(raw.spells?.cantripIds, true);
   state.spells.spellIds = normalizeSpellIds(raw.spells?.spellIds, false);

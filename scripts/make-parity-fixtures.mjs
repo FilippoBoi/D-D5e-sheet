@@ -89,6 +89,15 @@ for (const classId of CLASS_IDS) {
     model.set('resourcesUsed.ki', int(0, 3));
 
     const raw = model.getSnapshot();
+    // Note libere: alcune pulite, una sporca (titolo lungo, id doppio, spazzatura) per provare la normalizzazione.
+    if (n % 2 === 1) {
+      raw.notes.items = [
+        { id: 'n-1', title: 'Sessione 1', text: 'Taverna\nPNG: Elminster' },
+        { id: 'n-2', title: 'x'.repeat(120), text: 42 },
+        { id: 'n-1', title: 'Doppia', text: '' },
+        'spazzatura',
+      ];
+    }
     const state = normalizeCharacter(raw);
     const derived = {};
     for (const lang of ['it', 'en']) {

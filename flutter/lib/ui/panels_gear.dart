@@ -119,14 +119,17 @@ class _WeaponRow extends StatelessWidget {
           BoundField(model: model, path: '$p.damage', label: tr('Danni'), hint: '1d8'),
           BoundField(model: model, path: '$p.damageType', label: tr('Tipo'), hint: tr('Tagliente')),
         ]),
-        Row(children: [
-          Expanded(child: CheckRow(value: weapon['proficient'] == true, onChanged: (v) => model.set('$p.proficient', v), label: tr('Competente'))),
-          Text('${tr('TpC')} ', style: TextStyle(color: c.muted, fontSize: 12)),
-          Text(formatModifier(out['attack'] as int), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: c.accentStrong)),
-          const SizedBox(width: 14),
-          Text('${tr('Danni')} ', style: TextStyle(color: c.muted, fontSize: 12)),
-          Text(out['damageLabel'] as String, style: TextStyle(fontWeight: FontWeight.w700, color: c.accentStrong)),
-          IconButton(tooltip: tr('Rimuovi arma'), icon: Icon(Icons.close, color: c.vermilion), onPressed: () => model.removeWeapon(weapon['id'] as String)),
+        // Wrap: con testo ingrandito il riepilogo dell'attacco va a capo sotto la casella.
+        Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          SizedBox(width: MediaQuery.textScalerOf(context).scale(190), child: CheckRow(value: weapon['proficient'] == true, onChanged: (v) => model.set('$p.proficient', v), label: tr('Competente'))),
+          Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+            Text('${tr('TpC')} ', style: TextStyle(color: c.muted, fontSize: 12)),
+            Text(formatModifier(out['attack'] as int), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: c.accentStrong)),
+            const SizedBox(width: 14),
+            Text('${tr('Danni')} ', style: TextStyle(color: c.muted, fontSize: 12)),
+            Text(out['damageLabel'] as String, style: TextStyle(fontWeight: FontWeight.w700, color: c.accentStrong)),
+            IconButton(tooltip: tr('Rimuovi arma'), icon: Icon(Icons.close, color: c.vermilion), onPressed: () => model.removeWeapon(weapon['id'] as String)),
+          ]),
         ]),
       ]),
     );
@@ -210,9 +213,8 @@ class _SpellSet extends StatelessWidget {
     }
     final status = info['status'];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Subhead(title, trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+      Subhead(title, trailing: Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
         Text(spellCountText(info), style: TextStyle(fontWeight: FontWeight.w700, color: status == 'over' ? c.vermilion : c.accentStrong)),
-        const SizedBox(width: 8),
         FilledButton.tonal(onPressed: () => showSpellPicker(context, app, kind), child: Text(pickLabel)),
       ])),
       if (selected.isEmpty)

@@ -113,3 +113,29 @@ test('il repository tollera storage assente o corrotto', () => {
   const corrupted = new LocalStorageRepository('k', { getItem: () => '{not json', setItem() {}, removeItem() {} });
   assert.equal(corrupted.load(), null);
 });
+
+test('note libere: normalizzate, con id unici e limiti; le note predefinite restano dove sono', () => {
+  const model = new CharacterModel();
+  model.load({
+    notes: {
+      traits: 'Tratti', backstory: 'Storia',
+      items: [
+        { id: 'a', title: 'Sessione 1', text: 'Testo' },
+        { id: 'a', title: 'x'.repeat(200), text: 5 },
+        'spazzatura',
+      ],
+    },
+  });
+  const { notes } = model.getSnapshot();
+  assert.equal(notes.traits, 'Tratti');
+  assert.equal(notes.backstory, 'Storia');
+  assert.equal(notes.items.length, 3);
+  assert.equal(notes.items[0].id, 'a');
+  assert.notEqual(notes.items[1].id, 'a'); // id doppio: se ne genera uno nuovo
+  assert.equal(notes.items[1].title.length, 80);
+  assert.equal(notes.items[1].text, '5');
+  assert.equal(notes.items[2].title, '');
+  // Un salvataggio vecchio senza l'elenco riceve un elenco vuoto.
+  model.load({ notes: { traits: 'x' } });
+  assert.deepEqual(model.getSnapshot().notes.items, []);
+});

@@ -1,5 +1,4 @@
 // Prove di interfaccia: l'app parte, si usa come quella web e le descrizioni sono collegate.
-import 'package:dnd5e_sheet/app_controller.dart';
 import 'package:dnd5e_sheet/auth/account_service.dart';
 import 'package:dnd5e_sheet/auth/auth_service.dart';
 import 'package:dnd5e_sheet/services/storage.dart';
@@ -10,29 +9,20 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'boot.dart';
 import 'fake_backend.dart';
-
-Future<AppController> boot(WidgetTester tester, {Map<String, Object> prefs = const {}}) async {
-  // La lingua predefinita dipende dal dispositivo (nei test è l'inglese): si fissa l'italiano.
-  SharedPreferences.setMockInitialValues({'dnd5e-character-sheet:lang': '"it"', ...prefs});
-  setLang('it');
-  final app = (await tester.runAsync(AppController.load))!;
-  tester.view.physicalSize = const Size(1000, 9000);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  addTearDown(app.dispose);
-  await tester.pumpWidget(SheetApp(app: app, enableRemote: false));
-  await tester.pump();
-  return app;
-}
 
 void main() {
   tearDown(() => setLang('it'));
 
   testWidgets('parte con la scheda vuota e il riepilogo', (tester) async {
-    await boot(tester);
+    final app = await boot(tester);
     expect(find.text('Scheda Personaggio'), findsOneWidget);
     expect(find.text('Classe Armatura'), findsOneWidget);
+    // «Gioco» è la sezione iniziale; le informazioni stanno nella sezione Info.
+    expect(find.text('Informazioni Generali & Classe'), findsNothing);
+    app.setSection('info');
+    await tester.pump();
     expect(find.text('Informazioni Generali & Classe'), findsOneWidget);
   });
 
@@ -53,8 +43,8 @@ void main() {
 
   testWidgets('un mago sceglie un trucchetto dal popup e ne legge la descrizione', (tester) async {
     final app = await boot(tester);
-    app.setPanelOpen('spells', true);
     app.model.set('info.classId', 'wizard');
+    app.setSection('spells');
     await tester.pump();
     final pick = find.text('+ Scegli trucchetti');
     await tester.tap(pick);
@@ -101,6 +91,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Giocatore'), findsWidgets);
+    app.setSection('info'); // il nome del personaggio sta nella sezione Info
+    await tester.pump();
     expect(find.text('Thalia'), findsWidgets);
     expect(find.textContaining('sincronizzata'), findsOneWidget);
     expect((app.model.state['info'] as Map)['name'], 'Thalia');

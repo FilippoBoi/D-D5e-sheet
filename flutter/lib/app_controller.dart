@@ -128,6 +128,29 @@ class AppController extends ChangeNotifier {
     storage.saveUiState(panels);
   }
 
+  /// Ultima sezione aperta nella navigazione (id), o null alla prima apertura. Le chiavi con «@» non sono pannelli.
+  String? get section => panels['@section'] as String?;
+
+  void setSection(String id) {
+    if (section == id) return;
+    panels['@section'] = id;
+    storage.saveUiState(panels);
+    notifyListeners();
+  }
+
+  /// Ultima nota aperta: 'traits', 'backstory' o l'id di una nota libera.
+  String? get openNote => panels['@note'] as String?;
+
+  void setOpenNote(String? id) {
+    if (openNote == id) return;
+    if (id == null) {
+      panels.remove('@note');
+    } else {
+      panels['@note'] = id;
+    }
+    storage.saveUiState(panels);
+  }
+
   /// Cambia a ogni «espandi/comprimi tutto»: i pannelli si ricreano con il nuovo stato iniziale.
   int panelsGeneration = 0;
 

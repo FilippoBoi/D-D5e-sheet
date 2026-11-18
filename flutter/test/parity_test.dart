@@ -50,6 +50,12 @@ void main() {
           (item as Map).remove('id');
         }
       }
+      // Anche gli id delle note libere: il JS ne genera uno nuovo se manca o è doppio (random), qui si verifica il resto.
+      for (final side in [normalized, c['state'] as Map<String, dynamic>]) {
+        for (final note in ((side['notes'] as Map)['items'] as List)) {
+          (note as Map).remove('id');
+        }
+      }
       expect(firstDiff(c['state'], normalized), isNull);
     });
     for (final language in ['it', 'en']) {
