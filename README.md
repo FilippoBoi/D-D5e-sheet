@@ -39,9 +39,16 @@ js/
 │   └── LocalStorageRepository.js ← persistenza
 ├── view/                       ← VIEW: solo DOM, nessuna regola di gioco
 │   ├── CharacterView.js
+│   ├── AuthView.js             ← barra di sessione, login, pannello admin
 │   └── dom.js
-└── controller/
-    └── CharacterController.js  ← eventi View → comandi Model → render View
+├── controller/
+│   ├── CharacterController.js  ← eventi View → comandi Model → render View
+│   └── SessionController.js    ← login, pannello admin, collega la scheda condivisa
+├── auth/AuthService.js         ← token, sessioni ricordate nel browser
+├── net/RemoteApi.js            ← chiamate RPC al database (solo fetch)
+├── sync/                       ← sincronizzazione per sezione (CharacterSync, diff)
+└── config.js                   ← URL e chiave pubblica del backend (vuoti = solo locale)
+supabase/schema.sql             ← tabelle, sicurezza e funzioni del backend
 tests/                          ← test con il runner integrato di Node
 ```
 
@@ -91,6 +98,14 @@ npm test
 
 I test girano anche su GitHub Actions a ogni push e pull request (`.github/workflows/ci.yml`).
 
+Il backend ha un suo test di sicurezza (`supabase/tests/security.sql`): carica lo schema su un Postgres vero e verifica, come ruolo `anon`, che nessuno possa leggere o scrivere schede altrui, tra giocatori e tra campagne, che i token ruotati smettano di funzionare e che due persone non si sovrascrivano. In CI parte da solo; in locale, con un Postgres qualsiasi:
+
+```bash
+psql -v ON_ERROR_STOP=1 -f supabase/tests/prepare.sql -f supabase/schema.sql -f supabase/tests/security.sql
+```
+
+(`prepare.sql` crea i ruoli e lo schema che Supabase fornisce già: su Supabase non serve.)
+
 ## Pubblicazione su GitHub Pages
 
 1. Crea un repository su GitHub e carica il progetto:
@@ -108,9 +123,38 @@ I test girano anche su GitHub Actions a ogni push e pull request (`.github/workf
 
 Il file `.nojekyll` dice a GitHub Pages di servire i file così come sono, senza elaborarli con Jekyll.
 
+## Collaborazione online (opzionale)
+
+Master e giocatori possono lavorare sulla stessa scheda. Non ci sono email né password: si entra con un **token univoco**.
+
+| Chi | Token | Cosa può fare |
+|---|---|---|
+| **Master (admin)** | `ADM-XXXX-XXXX-XXXX` | Crea più campagne; per ognuna crea le schede, vede e modifica quelle di tutti, ricopia i link, ruota (revoca) i token, elimina |
+| **Giocatore** | `PG-XXXX-XXXX-XXXX` | Una sola scheda: la sua. Non vede né tocca quelle degli altri |
+
+Il Master condivide il **link di invito** (`…/?t=TOKEN`) o il token da incollare in *Accedi*. Il token viene tolto dall'indirizzo subito dopo l'ingresso e il dispositivo resta collegato. Le modifiche arrivano agli altri in pochi secondi. Si scambiano solo i campi cambiati: il Master che toglie PF e il giocatore che cambia la velocità non si sovrascrivono, anche se i due campi stanno nella stessa sezione. Solo se due persone modificano *lo stesso campo* (o la stessa lista, come le armi) vince l'ultimo che salva. Ogni pochi secondi il browser chiede soltanto un numero di revisione (pochi byte) e scarica la scheda solo se è cambiata. La scheda locale del browser non viene toccata mentre si è in campagna, e se la scheda di campagna è vuota si può caricarci quella locale.
+
+**Senza configurazione l'app resta solo locale**, come prima.
+
+### Attivarla (circa 5 minuti, gratis)
+
+1. Crea un progetto su [supabase.com](https://supabase.com).
+2. In **SQL Editor** incolla ed esegui `supabase/schema.sql` (si può rieseguire dopo ogni aggiornamento).
+3. In **Project Settings → API** copia *Project URL* e la chiave *anon / publishable* in `js/config.js`. Sono pubbliche per progettazione: la sicurezza sta nel database. **Non** usare mai la chiave `service_role`.
+4. Pubblica come al solito. Apri il sito → **Accedi / Campagna** → *Crea campagna*.
+
+### Sicurezza, in breve
+
+- Le tabelle hanno RLS attiva e nessuna policy: con la chiave pubblica non si legge né scrive nulla direttamente. Tutto passa da funzioni che verificano il token e limitano l'accesso alla campagna / scheda del chiamante.
+- Il token admin è salvato solo come hash e si vede alla creazione (il browser lo ricorda e il pannello lo mostra). I token dei giocatori sono salvati in chiaro perché il Master deve poterli ricopiare: chi ha il token di una scheda può modificarla, quindi trattalo come una password.
+- Token da 60 bit casuali: non si indovinano. Non c'è un limite di frequenza sui tentativi, di proposito: un'attesa nel database terrebbe occupata una connessione per ogni tentativo e permetterebbe a chiunque di esaurirle con poche richieste. Per un tavolo di gioco è adeguato, non per dati sensibili.
+- I link di invito contengono il token: la pagina non invia mai il Referer ad altri siti e toglie il token dall'indirizzo dopo l'ingresso. Resta però nella cronologia del browser da cui il link è stato aperto; se il dubbio c'è, il Master può rigenerare il token.
+- Chiunque conosca l'URL del progetto può creare campagne (nessun account richiesto). Il limite è di 50 schede per campagna e 128 KB per scheda (una scheda reale ne occupa pochi).
+- Il piano gratuito di Supabase mette in pausa i progetti inattivi per qualche settimana: al primo accesso basta riattivarlo dal pannello.
+
 ## Dati e privacy
 
-I dati restano solo nel `localStorage` del browser in uso e non vengono mai inviati altrove. Per spostare un personaggio su un altro dispositivo usa **Esporta** e **Importa** (file JSON). Se il browser blocca lo storage, ad esempio in alcune modalità private, la scheda funziona lo stesso ma non salva.
+Senza collaborazione online i dati restano solo nel `localStorage` del browser in uso e non vengono mai inviati altrove; con la collaborazione attiva, le schede *di campagna* (e solo quelle) vengono salvate sul tuo progetto Supabase. Per spostare un personaggio su un altro dispositivo usa **Esporta** e **Importa** (file JSON). Se il browser blocca lo storage, ad esempio in alcune modalità private, la scheda funziona lo stesso ma non salva.
 
 ## Estendere la scheda
 

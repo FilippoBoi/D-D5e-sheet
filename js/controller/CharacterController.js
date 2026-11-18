@@ -9,6 +9,7 @@
  * (sta nella View): decide solo *chi* deve fare *cosa* e *quando*.
  */
 import { detectLang, isSupportedLang, pick, setLang } from '../i18n/i18n.js';
+import { deepMerge } from '../sync/diff.js';
 
 const SAVE_DELAY_MS = 400;
 
@@ -18,6 +19,9 @@ export class CharacterController {
   #repository;
   #catalogs;
   #saveTimer = null;
+  /** Sincronizzazione con la scheda condivisa; null = si lavora sulla scheda locale. */
+  #remote = null;
+  #languageListeners = [];
 
   /**
    * @param {object} deps
@@ -59,6 +63,55 @@ export class CharacterController {
     }
 
     this.#render();
+  }
+
+  /** @returns {boolean} true se si sta modificando una scheda condivisa */
+  get isRemote() { return this.#remote !== null; }
+
+  /** @param {() => void} listener chiamato dopo ogni cambio lingua */
+  onLanguageChange(listener) { this.#languageListeners.push(listener); }
+
+  /** Scheda locale salvata, se esiste (serve per proporne il caricamento in campagna). */
+  hasLocalCharacter() { return this.#repository.load() !== null; }
+  localSnapshot() { return this.#repository.load(); }
+
+  /** Stato attuale della scheda mostrata (locale o condivisa). */
+  currentSnapshot() { return this.#model.toJSON(); }
+
+  /**
+   * Passa a una scheda condivisa. La scheda locale resta intatta nel browser:
+   * finché si è collegati, i salvataggi vanno solo al server.
+   *
+   * @param {import('../sync/CharacterSync.js').CharacterSync} sync già caricato con `load()`
+   * @param {unknown} data documento da mostrare (remoto, oppure la scheda locale da caricare)
+   * @param {{upload?: boolean}} [options] upload: `data` è la scheda locale e va inviata al server
+   */
+  attachRemote(sync, data, { upload = false } = {}) {
+    this.detachRemote();
+    this.#flushSave();
+    this.#remote = sync;
+    this.#model.load(data);
+    // Con l'upload la base resta vuota: il primo invio manda tutte le sezioni.
+    if (!upload) sync.markSynced(this.#model.toJSON());
+    else sync.push(); // prima che il salvataggio ritardato confronti qualcosa
+    sync.on('remote', ({ changes, updatedBy }) => {
+      if (this.#remote !== sync) return;
+      this.#model.load(deepMerge(this.#model.toJSON(), changes));
+      sync.markSynced(this.#model.toJSON());
+      this.#view.showStatus(updatedBy === 'admin'
+        ? pick('Aggiornata dal Master', 'Updated by the DM')
+        : pick('Aggiornata dal giocatore', 'Updated by the player'));
+    });
+    sync.start();
+  }
+
+  /** Torna alla scheda locale. */
+  detachRemote() {
+    if (!this.#remote) return;
+    this.#flushSave(); // invia ciò che era ancora in attesa del salvataggio ritardato
+    this.#remote.stop();
+    this.#remote = null;
+    this.#model.load(this.#repository.load());
   }
 
   #render() {
@@ -124,12 +177,13 @@ export class CharacterController {
     this.#repository.saveLanguage(code);
     this.#view.applyLanguage();
     this.#render();
+    this.#languageListeners.forEach((listener) => listener());
   }
 
   #reset() {
     if (!this.#view.confirm(pick('Cancellare tutti i dati del personaggio? L\'operazione non è reversibile.', 'Delete all character data? This cannot be undone.'))) return;
     this.#model.reset();
-    this.#repository.clear();
+    if (!this.#remote) this.#repository.clear(); // la scheda locale non si tocca mentre si è in campagna
   }
 
   #scheduleSave() {
@@ -141,6 +195,12 @@ export class CharacterController {
     if (this.#saveTimer === null) return;
     clearTimeout(this.#saveTimer);
     this.#saveTimer = null;
+    if (this.#remote) {
+      this.#remote.push(this.#model.toJSON()).then(({ pushed }) => {
+        if (pushed) this.#view.showStatus(pick('Sincronizzato ✓', 'Synced ✓'));
+      });
+      return;
+    }
     if (this.#repository.save(this.#model.toJSON())) this.#view.showStatus(pick('Salvato ✓', 'Saved ✓'));
   }
 }
