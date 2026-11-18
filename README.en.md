@@ -200,6 +200,10 @@ Without online collaboration your data stays only in the `localStorage` of the b
 - **New field**: add the default value in `characterSchema.js` and an input with `data-bind="path"` in `index.html`. If it needs validation, add a rule to `RULES`.
 - **New calculated value**: add it to the object returned by `deriveStats()` and show it with `data-out="path"`.
 
+## License
+
+The **code** is released under the [MIT](LICENSE) license. The SRD 5.1 texts in `docs/` and in the generated data are © Wizards of the Coast, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode); the Italian translation is unofficial.
+
 ## Legal notes
 
 An unofficial fan project. *Dungeons & Dragons* is a trademark of Wizards of the Coast. The feature descriptions are short summaries meant as reminders: for the full text, refer to the Player's Handbook.

@@ -257,6 +257,10 @@ Senza collaborazione online i dati restano solo nel `localStorage` del browser i
 - **Nuovo campo**: aggiungi il valore di default in `characterSchema.js` e un input con `data-bind="percorso"` in `index.html`. Se serve una validazione, aggiungi una regola in `RULES`.
 - **Nuovo valore calcolato**: aggiungilo all'oggetto restituito da `deriveStats()` e mostralo con `data-out="percorso"`.
 
+## Licenza
+
+Il **codice** è rilasciato con licenza [MIT](LICENSE). I testi SRD 5.1 in `docs/` e nei dati generati sono © Wizards of the Coast, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode); la traduzione italiana è non ufficiale.
+
 ## Note legali
 
 Progetto amatoriale non ufficiale. *Dungeons & Dragons* è un marchio di Wizards of the Coast. Le descrizioni dei privilegi sono riassunti brevi pensati come promemoria: per il testo completo fai riferimento al Manuale del Giocatore.
