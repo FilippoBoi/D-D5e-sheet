@@ -97,6 +97,54 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .toolbar .btn { min-height: 2.1rem; padding: 0.35rem 0.6rem; font-size: 0.8rem; }
 }
 
+/* ---------- Accesso a token e collaborazione ---------- */
+.session-bar {
+  width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.75rem; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+.session-bar[hidden] { display: none; }
+.session-bar__who { display: inline-flex; align-items: center; gap: 0.5rem; }
+.session-bar__sheet { color: var(--text-muted); margin-right: auto; }
+.session-bar__state--online { color: var(--teal-strong); }
+.session-bar__state--offline { color: var(--gold); }
+.session-bar__state--revoked { color: var(--vermilion-strong); }
+.badge {
+  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
+  background: var(--teal-soft); border: 1px solid var(--teal); color: var(--teal-strong);
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.session-bar .btn { min-height: 2.1rem; padding: 0.3rem 0.65rem; font-size: 0.8rem; }
+
+.dialog {
+  width: min(680px, calc(100vw - 1.5rem)); max-height: calc(100vh - 2rem); overflow: auto;
+  padding: 1rem 1.1rem; background: var(--card); color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.dialog__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.75rem; }
+.dialog h2 { font-family: var(--font-display); font-size: 1.2rem; }
+.dialog h3 { font-size: 0.95rem; margin: 0.75rem 0 0.4rem; }
+.dialog__form { display: flex; flex-direction: column; gap: 0.5rem; }
+.dialog__inline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+.dialog__inline .input { flex: 1 1 12rem; }
+.dialog__hint { color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0; }
+.dialog__error { color: var(--vermilion-strong); font-size: 0.85rem; min-height: 1.2em; margin-top: 0.5rem; }
+.dialog__sep { border: 0; border-top: 1px solid var(--border); margin: 1rem 0; }
+.dialog code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; background: var(--input); padding: 0.1rem 0.35rem; border-radius: 4px; }
+.input {
+  min-height: 2.4rem; padding: 0.45rem 0.6rem; background: var(--input);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.input:focus { outline: 2px solid var(--teal-strong); outline-offset: 1px; border-color: var(--teal-strong); }
+.char-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.char-row { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem 0.7rem; background: var(--card-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.char-row__title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; }
+.char-row__sub { color: var(--text-muted); font-size: 0.8rem; }
+.char-row__token, .char-row__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.dialog .btn { min-height: 2.2rem; padding: 0.3rem 0.65rem; font-size: 0.8rem; }
+.dialog .btn--icon { width: 2.4rem; padding: 0; }
+
 /* ---------- Quickbar (riepilogo sticky) ---------- */
 .quickbar {
   position: sticky; top: 0; z-index: 10;
@@ -427,7 +475,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---------- Stampa ---------- */
 @media print {
-  .toolbar, .lang-switch, .quickbar, .hp__actions, .btn, .save-status { display: none !important; }
+  .toolbar, .lang-switch, .quickbar, .hp__actions, .btn, .save-status, .session-bar, .dialog { display: none !important; }
   body { background: #fff; color: #000; }
   .panel { box-shadow: none; break-inside: avoid; }
 }

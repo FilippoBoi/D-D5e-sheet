@@ -11,6 +11,11 @@ import { CharacterModel } from './model/CharacterModel.js';
 import { LocalStorageRepository } from './model/LocalStorageRepository.js';
 import { CharacterView } from './view/CharacterView.js';
 import { CharacterController } from './controller/CharacterController.js';
+import { SessionController } from './controller/SessionController.js';
+import { AuthService } from './auth/AuthService.js';
+import { AuthView } from './view/AuthView.js';
+import { RemoteApi } from './net/RemoteApi.js';
+import { REMOTE_CONFIG, isRemoteConfigured } from './config.js';
 
 const repository = new LocalStorageRepository('dnd5e-character-sheet');
 const model = new CharacterModel(repository.load());
@@ -32,3 +37,16 @@ const controller = new CharacterController({
 });
 
 controller.init();
+
+// Collaborazione online (opzionale): attiva solo se il backend è configurato in js/config.js.
+if (isRemoteConfigured()) {
+  const api = new RemoteApi(REMOTE_CONFIG);
+  const storage = (() => { try { return globalThis.localStorage ?? null; } catch { return null; } })();
+  new SessionController({
+    auth: new AuthService(api, storage),
+    api,
+    view: new AuthView(document),
+    characters: controller,
+    showStatus: (message) => view.showStatus(message),
+  }).init();
+}

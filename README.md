@@ -39,9 +39,16 @@ js/
 │   └── LocalStorageRepository.js ← persistenza
 ├── view/                       ← VIEW: solo DOM, nessuna regola di gioco
 │   ├── CharacterView.js
+│   ├── AuthView.js             ← barra di sessione, login, pannello admin
 │   └── dom.js
-└── controller/
-    └── CharacterController.js  ← eventi View → comandi Model → render View
+├── controller/
+│   ├── CharacterController.js  ← eventi View → comandi Model → render View
+│   └── SessionController.js    ← login, pannello admin, collega la scheda condivisa
+├── auth/AuthService.js         ← token, sessioni ricordate nel browser
+├── net/RemoteApi.js            ← chiamate RPC al database (solo fetch)
+├── sync/                       ← sincronizzazione per sezione (CharacterSync, diff)
+└── config.js                   ← URL e chiave pubblica del backend (vuoti = solo locale)
+supabase/schema.sql             ← tabelle, sicurezza e funzioni del backend
 tests/                          ← test con il runner integrato di Node
 ```
 
@@ -108,9 +115,37 @@ I test girano anche su GitHub Actions a ogni push e pull request (`.github/workf
 
 Il file `.nojekyll` dice a GitHub Pages di servire i file così come sono, senza elaborarli con Jekyll.
 
+## Collaborazione online (opzionale)
+
+Master e giocatori possono lavorare sulla stessa scheda. Non ci sono email né password: si entra con un **token univoco**.
+
+| Chi | Token | Cosa può fare |
+|---|---|---|
+| **Master (admin)** | `ADM-XXXX-XXXX-XXXX` | Crea più campagne; per ognuna crea le schede, vede e modifica quelle di tutti, ricopia i link, ruota (revoca) i token, elimina |
+| **Giocatore** | `PG-XXXX-XXXX-XXXX` | Una sola scheda: la sua. Non vede né tocca quelle degli altri |
+
+Il Master condivide il **link di invito** (`…/?t=TOKEN`) o il token da incollare in *Accedi*. Il token viene tolto dall'indirizzo subito dopo l'ingresso e il dispositivo resta collegato. Le modifiche arrivano agli altri in pochi secondi; chi lavora su sezioni diverse della scheda (PF, equipaggiamento, note…) non si sovrascrive, mentre sulla stessa sezione vince l'ultimo che salva. La scheda locale del browser non viene toccata mentre si è in campagna, e se la scheda di campagna è vuota si può caricarci quella locale.
+
+**Senza configurazione l'app resta solo locale**, come prima.
+
+### Attivarla (circa 5 minuti, gratis)
+
+1. Crea un progetto su [supabase.com](https://supabase.com).
+2. In **SQL Editor** incolla ed esegui `supabase/schema.sql` (si può rieseguire dopo ogni aggiornamento).
+3. In **Project Settings → API** copia *Project URL* e la chiave *anon / publishable* in `js/config.js`. Sono pubbliche per progettazione: la sicurezza sta nel database. **Non** usare mai la chiave `service_role`.
+4. Pubblica come al solito. Apri il sito → **Accedi / Campagna** → *Crea campagna*.
+
+### Sicurezza, in breve
+
+- Le tabelle hanno RLS attiva e nessuna policy: con la chiave pubblica non si legge né scrive nulla direttamente. Tutto passa da funzioni che verificano il token e limitano l'accesso alla campagna / scheda del chiamante.
+- Il token admin è salvato solo come hash e si vede alla creazione (il browser lo ricorda e il pannello lo mostra). I token dei giocatori sono salvati in chiaro perché il Master deve poterli ricopiare: chi ha il token di una scheda può modificarla, quindi trattalo come una password.
+- Token da 60 bit casuali e una breve attesa sui tentativi errati. Non c'è un limite di frequenza vero e proprio: per un tavolo di gioco è adeguato, non per dati sensibili.
+- Chiunque conosca l'URL del progetto può creare campagne (nessun account richiesto). Il limite è di 50 schede per campagna.
+- Il piano gratuito di Supabase mette in pausa i progetti inattivi per qualche settimana: al primo accesso basta riattivarlo dal pannello.
+
 ## Dati e privacy
 
-I dati restano solo nel `localStorage` del browser in uso e non vengono mai inviati altrove. Per spostare un personaggio su un altro dispositivo usa **Esporta** e **Importa** (file JSON). Se il browser blocca lo storage, ad esempio in alcune modalità private, la scheda funziona lo stesso ma non salva.
+Senza collaborazione online i dati restano solo nel `localStorage` del browser in uso e non vengono mai inviati altrove; con la collaborazione attiva, le schede *di campagna* (e solo quelle) vengono salvate sul tuo progetto Supabase. Per spostare un personaggio su un altro dispositivo usa **Esporta** e **Importa** (file JSON). Se il browser blocca lo storage, ad esempio in alcune modalità private, la scheda funziona lo stesso ma non salva.
 
 ## Estendere la scheda
 
