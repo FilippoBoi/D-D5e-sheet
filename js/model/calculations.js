@@ -4,7 +4,7 @@
  */
 import { MEDIUM_ARMOR_MAX_DEX, SHIELD_AC_BONUS } from '../data/armors.js';
 import { getAbility } from '../data/abilities.js';
-import { FULL_CASTER_SLOTS, PACT_MAGIC_TABLE } from '../data/spellSlots.js';
+import { FULL_CASTER_SLOTS, PACT_MAGIC_TABLE, THIRD_CASTER_SLOTS } from '../data/spellSlots.js';
 import { clampInt } from '../core/utils.js';
 import { loc, pick } from '../i18n/i18n.js';
 
@@ -91,7 +91,7 @@ export const spellAttackBonus = (profBonus, abilityMod) => profBonus + abilityMo
 
 /**
  * Slot incantesimo disponibili.
- * @param {'full'|'half'|'pact'|null} progression
+ * @param {'full'|'half'|'third'|'pact'|null} progression
  * @param {number} level
  * @returns {Array<{level: number, max: number}>}
  */
@@ -102,6 +102,8 @@ export function spellSlotsFor(progression, level) {
       return toSlots(FULL_CASTER_SLOTS[level]);
     case 'half':
       return level < 2 ? [] : toSlots(FULL_CASTER_SLOTS[Math.ceil(level / 2)]);
+    case 'third':
+      return toSlots(THIRD_CASTER_SLOTS[clampInt(level, 1, 20)]);
     case 'pact': {
       let row = PACT_MAGIC_TABLE[0];
       for (const entry of PACT_MAGIC_TABLE) if (level >= entry[0]) row = entry;

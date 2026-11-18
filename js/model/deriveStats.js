@@ -120,7 +120,7 @@ export function deriveStats(state) {
   });
 
   // --- Incantesimi ---
-  const casting = cls.spellcasting;
+  const casting = cls.spellcasting ?? resolved.effects.spellcasting;
   const isCaster = Boolean(casting) && level >= casting.minLevel;
   const castMod = casting ? mods[casting.ability] : 0;
   const slots = isCaster
@@ -135,7 +135,7 @@ export function deriveStats(state) {
   const hpPercent = clamp(Math.round((hpCurrent / hpMax) * 100), 0, 100);
 
   const features = getClassFeatures(cls.id, level, choiceFeatureRows(resolved, level));
-  const resources = getClassResources(cls.id, level, mods);
+  const resources = getClassResources(cls.id, level, mods, { subclass: resolved.subclass?.option.value ?? '', profBonus });
 
   const skillName = (id) => (SKILLS.find((s) => s.id === id) ? loc(SKILLS.find((s) => s.id === id)) : id);
 

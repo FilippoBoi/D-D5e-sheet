@@ -92,7 +92,7 @@ export function resolveClassChoices({ classId, level, choices, isProficient }) {
   const valueOf = (key) => active[key] ?? '';
   const granted = new Set();   // abilità con competenza concessa da una scelta
   const expertise = new Set(); // abilità con Maestria concessa da una scelta
-  const effects = { acWithArmor: [], hpPerLevel: 0, unarmoredDefense: null };
+  const effects = { acWithArmor: [], hpPerLevel: 0, unarmoredDefense: null, spellcasting: null };
   const groups = [];
   let subclass = null;
 
@@ -102,6 +102,7 @@ export function resolveClassChoices({ classId, level, choices, isProficient }) {
     if (e.acWithArmor) effects.acWithArmor.push({ label, value: e.acWithArmor });
     if (e.hpPerLevel) effects.hpPerLevel += e.hpPerLevel;
     if (e.unarmoredDefense && !effects.unarmoredDefense) effects.unarmoredDefense = e.unarmoredDefense;
+    if (e.spellcasting && !effects.spellcasting) effects.spellcasting = e.spellcasting;
   };
 
   for (const def of defs) {
@@ -173,7 +174,12 @@ export function choiceFeatureRows(resolved, level) {
     const { def } = g;
     if (def.subclass) continue;
     const replaces = def.featureName ? loc(def, 'featureName') : (def.replacesFeature ? loc(def, 'label') : undefined);
-    if (def.type === 'single' && g.option?.description) {
+    if (def.type === 'single' && def.featureName && g.option) {
+      picks.push({
+        level: def.minLevel, name: loc(def, 'label'), replaces, append: true,
+        description: `${pick('Scelta', 'Chosen')}: ${loc(g.option, 'label')}.`,
+      });
+    } else if (def.type === 'single' && g.option?.description) {
       picks.push({
         level: def.minLevel, name: `${loc(def, 'label')}: ${loc(g.option, 'label')}`, description: loc(g.option, 'description'), replaces,
       });
