@@ -6,6 +6,7 @@ import { MEDIUM_ARMOR_MAX_DEX, SHIELD_AC_BONUS } from '../data/armors.js';
 import { getAbility } from '../data/abilities.js';
 import { FULL_CASTER_SLOTS, PACT_MAGIC_TABLE } from '../data/spellSlots.js';
 import { clampInt } from '../core/utils.js';
+import { loc, pick } from '../i18n/i18n.js';
 
 /** Modificatore di caratteristica: floor((punteggio - 10) / 2). */
 export const abilityModifier = (score) => Math.floor((Number(score) - 10) / 2);
@@ -35,26 +36,30 @@ export function armorDexBonus(category, dexMod) {
  * @param {number} [p.magicBonus]
  * @param {Record<string, number>} p.mods
  * @param {{ability: string, allowsShield: boolean} | null} [p.unarmoredDefense]
+ * @param {Array<{label: string, value: number}>} [p.extraItems] oggetti che danno CA (anelli, mantelli...)
  * @returns {{ total: number, parts: Array<{label: string, value: number}> }}
  */
-export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unarmoredDefense = null }) {
+export function computeArmorClass({ armor, hasShield, magicBonus = 0, mods, unarmoredDefense = null, extraItems = [] }) {
   const parts = [];
 
   if (armor.category === 'none') {
-    parts.push({ label: 'Base', value: 10 }, { label: 'DES', value: mods.dex });
+    parts.push({ label: pick('Base', 'Base'), value: 10 }, { label: loc(getAbility('dex'), 'short'), value: mods.dex });
     // Difesa senza Armatura: il Monaco la perde se impugna uno scudo.
     if (unarmoredDefense && (!hasShield || unarmoredDefense.allowsShield)) {
-      parts.push({ label: getAbility(unarmoredDefense.ability).short, value: mods[unarmoredDefense.ability] });
+      parts.push({ label: loc(getAbility(unarmoredDefense.ability), 'short'), value: mods[unarmoredDefense.ability] });
     }
   } else {
-    parts.push({ label: armor.name, value: armor.baseAC });
+    parts.push({ label: loc(armor), value: armor.baseAC });
     if (armor.category !== 'heavy') {
-      parts.push({ label: 'DES', value: armorDexBonus(armor.category, mods.dex) });
+      parts.push({ label: loc(getAbility('dex'), 'short'), value: armorDexBonus(armor.category, mods.dex) });
     }
   }
 
-  if (hasShield) parts.push({ label: 'Scudo', value: SHIELD_AC_BONUS });
-  if (magicBonus) parts.push({ label: 'Magia', value: magicBonus });
+  if (hasShield) parts.push({ label: pick('Scudo', 'Shield'), value: SHIELD_AC_BONUS });
+  if (magicBonus) parts.push({ label: pick('Magia', 'Magic'), value: magicBonus });
+  for (const item of extraItems) {
+    if (item.value) parts.push(item);
+  }
 
   return { total: parts.reduce((sum, p) => sum + p.value, 0), parts };
 }

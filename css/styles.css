@@ -70,9 +70,31 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .app-header h1 span { color: var(--teal-strong); font-weight: 400; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+/* Selettore di lingua: una bandierina per lingua, quella attiva è evidenziata */
+.lang-switch { display: flex; gap: 0.4rem; margin-left: auto; }
+.lang-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.75rem; min-height: 2.75rem; padding: 0.4rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; opacity: 0.65;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+.lang-btn svg { display: block; width: 1.75rem; height: auto; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4); }
+.lang-btn:hover { opacity: 1; background: var(--card-raised); }
+.lang-btn[aria-pressed="true"] { opacity: 1; border-color: var(--teal-strong); background: var(--teal-soft); }
+.lang-btn:focus-visible { outline: 2px solid var(--teal-strong); outline-offset: 2px; }
 .save-status {
   width: 100%; font-size: 0.8rem; color: var(--text-muted); min-height: 1.2em;
   transition: opacity 0.3s;
+}
+
+/* Su telefono la testata occupa meno spazio: più righe di scheda visibili */
+@media (max-width: 599px) {
+  .app-header { padding: 0.6rem 0.75rem; gap: 0.5rem; }
+  .app-header h1 { font-size: 1.1rem; }
+  .app-header__logo { width: 28px; height: 28px; }
+  .toolbar .btn { min-height: 2.1rem; padding: 0.35rem 0.6rem; font-size: 0.8rem; }
 }
 
 /* ---------- Quickbar (riepilogo sticky) ---------- */
@@ -228,6 +250,34 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 }
 .notice--warning { border-color: var(--vermilion); background: var(--vermilion-soft); }
 
+/* Campi vuoti letti da data-out: mostra un trattino invece del nulla */
+[data-out]:empty::before { content: "—"; color: var(--text-muted); }
+
+/* ---------- Origine (razza e classe) ---------- */
+.origin {
+  padding: 0.75rem 0.9rem; background: var(--card-raised);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.origin__title { margin-bottom: 0.5rem; }
+.origin__list { margin: 0; display: grid; gap: 0.4rem; grid-template-columns: 1fr; }
+@media (min-width: 600px) { .origin__list { grid-template-columns: repeat(2, 1fr); } }
+.origin__list div { display: grid; gap: 0.1rem; }
+.origin__list dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.origin__list dd { margin: 0; font-size: 0.9rem; }
+
+/* Scelte di razza e competenze di classe */
+.origin__choices { margin-top: 0.6rem; }
+.class-skills { display: grid; gap: var(--gap); }
+.class-skills .hint { margin-top: -0.2rem; }
+
+/* Oggetti che modificano la CA */
+.ac-items { display: grid; gap: 0.5rem; }
+.ac-item {
+  display: grid; gap: 0.5rem; align-items: end;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  padding: 0.6rem; background: var(--card-raised); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+
 /* ---------- Pulsanti ---------- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
@@ -377,7 +427,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---------- Stampa ---------- */
 @media print {
-  .toolbar, .quickbar, .hp__actions, .btn, .save-status { display: none !important; }
+  .toolbar, .lang-switch, .quickbar, .hp__actions, .btn, .save-status { display: none !important; }
   body { background: #fff; color: #000; }
   .panel { box-shadow: none; break-inside: avoid; }
 }

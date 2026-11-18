@@ -6,6 +6,9 @@
  * in modo generico perché dipendono dalla scelta del giocatore.
  */
 
+import { getLang } from '../i18n/i18n.js';
+import { RAW_FEATURES_EN } from './classFeatures.en.js';
+
 const ASI_NAME = 'Aumento dei Punteggi di Caratteristica';
 const ASI_DESC = 'Aumenta una caratteristica di 2 o due caratteristiche di 1 (max 20), oppure scegli un talento.';
 const asi = (level) => [level, ASI_NAME, ASI_DESC];
@@ -275,20 +278,26 @@ const RAW_FEATURES = {
 };
 
 /** Converte le tuple compatte in oggetti immutabili, una sola volta al caricamento. */
-export const CLASS_FEATURES = Object.freeze(
+const freezeFeatures = (raw) => Object.freeze(
   Object.fromEntries(
-    Object.entries(RAW_FEATURES).map(([classId, list]) => [
+    Object.entries(raw).map(([classId, list]) => [
       classId,
       Object.freeze(list.map(([level, name, description]) => Object.freeze({ level, name, description }))),
     ]),
   ),
 );
 
+export const CLASS_FEATURES = freezeFeatures(RAW_FEATURES);
+export const CLASS_FEATURES_EN = freezeFeatures(RAW_FEATURES_EN);
+export { RAW_FEATURES };
+
 /**
- * Privilegi sbloccati da una classe fino al livello indicato (incluso).
+ * Privilegi sbloccati da una classe fino al livello indicato (incluso),
+ * nella lingua corrente.
  * @param {string} classId
  * @param {number} level
  */
 export function getClassFeatures(classId, level) {
-  return (CLASS_FEATURES[classId] ?? []).filter((f) => f.level <= level);
+  const source = getLang() === 'en' ? CLASS_FEATURES_EN : CLASS_FEATURES;
+  return (source[classId] ?? []).filter((f) => f.level <= level);
 }

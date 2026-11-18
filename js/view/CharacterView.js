@@ -16,6 +16,17 @@
  */
 import { formatModifier, getByPath } from '../core/utils.js';
 import { el, readInputValue, writeInputValue } from './dom.js';
+import { ALIGNMENTS_EN } from '../data/abilities.js';
+import { ARMOR_CATEGORIES_EN } from '../data/armors.js';
+import { getLang, loc, pick } from '../i18n/i18n.js';
+import { translateString, translateTree } from '../i18n/domTranslator.js';
+
+/** 1 → 1st, 2 → 2nd, 3 → 3rd, 4 → 4th... (solo inglese). */
+function ordinal(n) {
+  const rest = n % 100;
+  if (rest >= 11 && rest <= 13) return `${n}th`;
+  return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'}`;
+}
 
 const FORMATTERS = {
   mod: (v) => formatModifier(Number(v)),
@@ -24,6 +35,9 @@ const FORMATTERS = {
 export class CharacterView {
   #root;
   #lastState = null;
+  #catalogs = null;
+  /** Testi italiani originali di <title> e meta description, per poter tornare indietro. */
+  #headOriginals = null;
   /** Chiavi dell'ultimo render delle liste, per ricostruirle solo quando cambiano. */
   #listKeys = new Map();
 
@@ -54,56 +68,96 @@ export class CharacterView {
    * @param {Array<{id:string,name:string}>} catalogs.classes
    * @param {string[]} catalogs.alignments
    */
-  build({ abilities, skills, armors, armorCategories, classes, alignments }) {
-    const shortOf = Object.fromEntries(abilities.map((a) => [a.id, a.short]));
+  build({ abilities, skills, armors, armorCategories, classes, races, alignments }) {
+    this.#catalogs = { abilities, skills, armors, armorCategories, classes, races, alignments };
+    const shortOf = Object.fromEntries(abilities.map((a) => [a.id, loc(a, 'short')]));
+    // In inglese le abilità vanno riordinate alfabeticamente (l'elenco di base è in ordine italiano).
+    const sortedSkills = getLang() === 'it'
+      ? skills
+      : [...skills].sort((a, b) => loc(a).localeCompare(loc(b), getLang()));
+    const categoryLabels = getLang() === 'it' ? armorCategories : ARMOR_CATEGORIES_EN;
+    const alignmentLabel = (a) => (getLang() === 'it' ? a : (ALIGNMENTS_EN[a] ?? a));
 
-    this.#q('[data-options="classes"]').append(
-      ...classes.map((c) => el('option', { value: c.id, text: c.name })),
+    this.#q('[data-options="races"]').replaceChildren(
+      el('option', { value: '', text: '—' }),
+      ...races.map((r) => el('option', { value: r.id, text: loc(r) })),
     );
-    this.#q('[data-options="alignments"]').append(
-      ...alignments.map((a) => el('option', { value: a, text: a })),
+    this.#q('[data-options="classes"]').replaceChildren(
+      ...classes.map((c) => el('option', { value: c.id, text: loc(c) })),
+    );
+    this.#q('[data-options="alignments"]').replaceChildren(
+      el('option', { value: '', text: '—' }),
+      ...alignments.map((a) => el('option', { value: a, text: alignmentLabel(a) })),
     );
 
     // Armature raggruppate per categoria con <optgroup>
     const armorSelect = this.#q('[data-options="armors"]');
-    for (const [category, label] of Object.entries(armorCategories)) {
+    armorSelect.replaceChildren();
+    for (const [category, label] of Object.entries(categoryLabels)) {
       const items = armors.filter((a) => a.category === category);
       const options = items.map((a) => el('option', {
         value: a.id,
-        text: category === 'none' ? a.name : `${a.name} (CA ${a.baseAC})`,
+        text: category === 'none' ? loc(a) : `${loc(a)} (${pick('CA', 'AC')} ${a.baseAC})`,
       }));
       armorSelect.append(category === 'none' ? options[0] : el('optgroup', { label }, options));
     }
 
-    this.#q('[data-list="abilities"]').append(...abilities.map((a) => el('div', { class: 'ability' }, [
-      el('span', { class: 'ability__name', text: a.name }),
+    this.#q('[data-list="abilities"]').replaceChildren(...abilities.map((a) => el('div', { class: 'ability' }, [
+      el('span', { class: 'ability__name', text: loc(a) }),
       el('output', { class: 'ability__mod', dataset: { out: `mods.${a.id}`, format: 'mod' } }),
       el('input', {
         type: 'number', min: 1, max: 30, inputmode: 'numeric',
-        'aria-label': `Punteggio di ${a.name}`, dataset: { bind: `abilities.${a.id}` },
+        'aria-label': `${pick('Punteggio di', 'Score for')} ${loc(a)}`, dataset: { bind: `abilities.${a.id}` },
       }),
     ])));
 
-    this.#q('[data-list="saves"]').append(...abilities.map((a) => el('li', { class: 'checklist__row checklist__row--save' }, [
+    this.#q('[data-list="saves"]').replaceChildren(...abilities.map((a) => el('li', { class: 'checklist__row checklist__row--save' }, [
       el('input', { type: 'checkbox', id: `save-${a.id}`, dataset: { bind: `saveProficiencies.${a.id}` } }),
-      el('label', { class: 'checklist__name', for: `save-${a.id}`, text: a.name }),
+      el('label', { class: 'checklist__name', for: `save-${a.id}`, text: loc(a) }),
       el('output', { class: 'checklist__value', dataset: { out: `saves.${a.id}`, format: 'mod' } }),
     ])));
 
-    this.#q('[data-list="skills"]').append(...skills.map((s) => el('li', { class: 'checklist__row' }, [
+    this.#q('[data-list="skills"]').replaceChildren(...sortedSkills.map((s) => el('li', { class: 'checklist__row' }, [
       el('input', {
-        type: 'checkbox', id: `skill-${s.id}`, title: 'Competenza',
+        type: 'checkbox', id: `skill-${s.id}`, title: pick('Competenza', 'Proficiency'),
         dataset: { bind: `skills.${s.id}.proficient` },
       }),
       el('input', {
-        type: 'checkbox', class: 'expertise', title: 'Maestria (doppia competenza)',
-        'aria-label': `Maestria in ${s.name}`, dataset: { bind: `skills.${s.id}.expertise` },
+        type: 'checkbox', class: 'expertise', title: pick('Maestria (doppia competenza)', 'Expertise (double proficiency)'),
+        'aria-label': `${pick('Maestria in', 'Expertise in')} ${loc(s)}`, dataset: { bind: `skills.${s.id}.expertise` },
       }),
       el('label', { class: 'checklist__name', for: `skill-${s.id}` }, [
-        s.name, el('small', { text: shortOf[s.ability] }),
+        loc(s), el('small', { text: shortOf[s.ability] }),
       ]),
       el('output', { class: 'checklist__value', dataset: { out: `skills.${s.id}`, format: 'mod' } }),
     ])));
+  }
+
+  // ===================================================================
+  // Lingua
+  // ===================================================================
+
+  /**
+   * Applica la lingua corrente (già impostata in i18n.js) a tutta la pagina:
+   * testi statici, menu costruiti dai cataloghi e liste dinamiche.
+   * Il Controller chiama poi render() per aggiornare i valori derivati.
+   */
+  applyLanguage() {
+    const lang = getLang();
+    this.#root.documentElement?.setAttribute('lang', lang);
+    this.#headOriginals ??= {
+      title: this.#root.title,
+      description: this.#q('meta[name="description"]')?.getAttribute('content') ?? '',
+    };
+    this.#root.title = translateString(this.#headOriginals.title);
+    this.#q('meta[name="description"]')?.setAttribute('content', translateString(this.#headOriginals.description));
+
+    translateTree(this.#root.body ?? this.#root);
+    if (this.#catalogs) this.build(this.#catalogs);
+    this.#listKeys.clear(); // le liste dinamiche vanno ricostruite nella nuova lingua
+    this.#qa('[data-lang]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
+    });
   }
 
   // ===================================================================
@@ -122,6 +176,9 @@ export class CharacterView {
     this.#renderSpellSlots(derived.spellcasting.slots);
     this.#renderFeatures(derived.features);
     this.#renderResources(derived.resources);
+    this.#renderRaceChoices(derived.race?.choices ?? []);
+    this.#renderClassSkills(derived.classInfo.skillSlots);
+    this.#renderAcItems(state.equipment.acItems);
 
     // 2. Valori: input, output, pallini, visibilità
     this.#qa('[data-bind]').forEach((input) => this.#syncInput(input));
@@ -164,9 +221,10 @@ export class CharacterView {
     const container = this.#q('[data-list="weapons"]');
     const rows = weapons.map((weapon, index) => {
       const row = this.weaponTemplate.content.firstElementChild.cloneNode(true);
+      translateTree(row);
       row.querySelectorAll('[data-field]').forEach((input) => {
         input.dataset.bind = `weapons.${index}.${input.dataset.field}`;
-        input.setAttribute('aria-label', `${input.closest('label')?.textContent.trim() ?? ''} arma ${index + 1}`);
+        input.setAttribute('aria-label', `${input.closest('label')?.textContent.trim() ?? ''} ${pick('arma', 'weapon')} ${index + 1}`);
       });
       row.querySelectorAll('[data-field-out]').forEach((out) => {
         out.dataset.out = `weapons.${index}.${out.dataset.fieldOut}`;
@@ -182,10 +240,10 @@ export class CharacterView {
     if (!this.#shouldRebuild('slots', key)) return;
 
     this.#q('[data-list="spell-slots"]').replaceChildren(...slots.map((slot, i) => el('div', { class: 'slot' }, [
-      el('span', { class: 'slot__level', text: `${slot.level}°` }),
+      el('span', { class: 'slot__level', text: pick(`${slot.level}°`, ordinal(slot.level)) }),
       el('div', {
         class: 'pips',
-        dataset: { pips: '', path: `spells.slotsUsed.${slot.level}`, max: slot.max, label: `Slot di ${slot.level}° livello usato` },
+        dataset: { pips: '', path: `spells.slotsUsed.${slot.level}`, max: slot.max, label: pick(`Slot di ${slot.level}° livello usato`, `${ordinal(slot.level)}-level slot used`) },
       }),
       el('span', { class: 'slot__count', dataset: { out: `spellcasting.slots.${i}.remaining` } }),
     ])));
@@ -196,7 +254,7 @@ export class CharacterView {
     if (!this.#shouldRebuild('features', key)) return;
 
     this.#q('[data-list="features"]').replaceChildren(...features.map((f) => el('li', { class: 'feature' }, [
-      el('span', { class: 'feature__level', text: `Liv. ${f.level}` }),
+      el('span', { class: 'feature__level', text: pick(`Liv. ${f.level}`, `Lv. ${f.level}`) }),
       el('div', {}, [
         el('div', { class: 'feature__name', text: f.name }),
         el('p', { class: 'feature__desc', text: f.description }),
@@ -214,6 +272,55 @@ export class CharacterView {
     ])));
   }
 
+  /** Menu a tendina per le scelte della razza (aumenti, abilità, opzione singola). */
+  #renderRaceChoices(choices) {
+    const key = choices.map((c) => `${c.key}:${c.label}:${c.options.length}`).join('|');
+    if (!this.#shouldRebuild('race-choices', key)) return;
+
+    this.#q('[data-list="race-choices"]').replaceChildren(...choices.map((choice) => el('label', { class: 'field' }, [
+      el('span', { class: 'field__label', text: choice.label }),
+      el('select', { dataset: { bind: `info.raceChoices.${choice.key}` } }, [
+        el('option', { value: '', text: '—' }),
+        ...choice.options.map((o) => el('option', { value: o.value, text: o.label })),
+      ]),
+    ])));
+  }
+
+  /** Menu a tendina per le competenze in abilità scelte dalla classe. */
+  #renderClassSkills(slots) {
+    const key = slots.map((s) => `${s.key}:${s.options.length}`).join('|');
+    if (!this.#shouldRebuild('class-skills', key)) return;
+
+    this.#q('[data-list="class-skills"]').replaceChildren(...slots.map((slot, i) => el('label', { class: 'field' }, [
+      el('span', { class: 'field__label', text: `${pick('Abilità di classe', 'Class skill')} ${i + 1}` }),
+      el('select', { dataset: { bind: `classSkills.${slot.key}` } }, [
+        el('option', { value: '', text: '—' }),
+        ...slot.options.map((o) => el('option', { value: o.value, text: o.label })),
+      ]),
+    ])));
+  }
+
+  /** Oggetti che modificano la CA: nome e bonus, con rimozione. */
+  #renderAcItems(items) {
+    const key = items.map((item) => item.id).join('|');
+    if (!this.#shouldRebuild('ac-items', key)) return;
+
+    this.#q('[data-list="ac-items"]').replaceChildren(...items.map((item, index) => el('div', { class: 'ac-item' }, [
+      el('label', { class: 'field' }, [
+        el('span', { class: 'field__label', text: pick('Oggetto', 'Item') }),
+        el('input', { type: 'text', autocomplete: 'off', placeholder: pick('Anello di protezione', 'Ring of protection'), dataset: { bind: `equipment.acItems.${index}.name` } }),
+      ]),
+      el('label', { class: 'field' }, [
+        el('span', { class: 'field__label', text: pick('Bonus CA', 'AC bonus') }),
+        el('input', { type: 'number', min: '-5', max: '10', inputmode: 'numeric', dataset: { bind: `equipment.acItems.${index}.bonus` } }),
+      ]),
+      el('button', {
+        type: 'button', class: 'btn btn--icon btn--danger', 'aria-label': pick('Rimuovi oggetto', 'Remove item'),
+        dataset: { action: 'remove-ac-item', id: item.id }, text: '✕',
+      }),
+    ])));
+  }
+
   /** Allinea i pallini al valore nello stato, creando i pulsanti mancanti. */
   #renderPips(state) {
     this.#qa('[data-pips]').forEach((group) => {
@@ -223,12 +330,14 @@ export class CharacterView {
         const i = group.children.length;
         group.append(el('button', {
           type: 'button', class: 'pip',
-          'aria-label': `${group.dataset.label} ${i + 1}`,
           dataset: { action: 'set-pip', path: group.dataset.path, index: i },
         }));
       }
       while (group.children.length > max) group.lastElementChild.remove();
-      [...group.children].forEach((pip, i) => pip.setAttribute('aria-pressed', String(i < value)));
+      [...group.children].forEach((pip, i) => {
+        pip.setAttribute('aria-label', `${translateString(group.dataset.label)} ${i + 1}`);
+        pip.setAttribute('aria-pressed', String(i < value));
+      });
     });
   }
 

@@ -19,6 +19,14 @@
       <svg class="app-header__logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1 29 8.5v15L16 31 3 23.5v-15z"/><path class="cut" d="M16 7l7 12H9z"/></svg>
       <h1>Scheda Personaggio <span>D&amp;D 5E</span></h1>
     </div>
+    <div class="lang-switch" role="group" aria-label="Lingua">
+      <button type="button" class="lang-btn" data-action="set-lang" data-lang="it" lang="it" title="Italiano" aria-label="Italiano" aria-pressed="true">
+        <svg viewBox="0 0 3 2" aria-hidden="true" focusable="false"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#CE2B37"/></svg>
+      </button>
+      <button type="button" class="lang-btn" data-action="set-lang" data-lang="en" lang="en" title="English" aria-label="English" aria-pressed="false">
+        <svg viewBox="0 0 60 30" aria-hidden="true" focusable="false"><clipPath id="flag-uk-s"><path d="M0 0v30h60V0z"/></clipPath><clipPath id="flag-uk-t"><path d="M30 15h30v15zv15h-30zh-30v-15zv-15h30z"/></clipPath><g clip-path="url(#flag-uk-s)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#flag-uk-t)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>
+      </button>
+    </div>
     <nav class="toolbar" aria-label="Azioni sulla scheda">
       <button type="button" class="btn btn--ghost" data-action="expand-all">Espandi tutto</button>
       <button type="button" class="btn btn--ghost" data-action="collapse-all">Comprimi tutto</button>
@@ -43,41 +51,10 @@
 
   <main class="sheet" id="sheet">
 
-    <!-- 1. INFORMAZIONI GENERALI -->
-    <details class="panel" data-panel="info" open>
-      <summary class="panel__header">
-        <span class="panel__index">1</span>
-        <h2>Informazioni Generali &amp; Classe</h2>
-        <span class="panel__chevron" aria-hidden="true"></span>
-      </summary>
-      <div class="panel__body">
-        <div class="grid grid--3">
-          <label class="field"><span class="field__label">Nome personaggio</span>
-            <input type="text" data-bind="info.name" autocomplete="off" placeholder="Es. Thalia Corvoscuro"></label>
-          <label class="field"><span class="field__label">Giocatore</span>
-            <input type="text" data-bind="info.player" autocomplete="off"></label>
-          <label class="field"><span class="field__label">Razza</span>
-            <input type="text" data-bind="info.race" autocomplete="off" placeholder="Es. Mezzelfo"></label>
-          <label class="field"><span class="field__label">Background</span>
-            <input type="text" data-bind="info.background" autocomplete="off" placeholder="Es. Accolito"></label>
-          <label class="field"><span class="field__label">Allineamento</span>
-            <select data-bind="info.alignment" data-options="alignments"><option value="">—</option></select></label>
-          <label class="field"><span class="field__label">Classe</span>
-            <select data-bind="info.classId" data-options="classes"></select></label>
-        </div>
-        <div class="grid grid--3 grid--stats">
-          <label class="field"><span class="field__label">Livello</span>
-            <input type="number" data-bind="info.level" min="1" max="20" inputmode="numeric"></label>
-          <div class="stat"><span class="stat__label">Bonus competenza</span><output class="stat__value" data-out="profBonus" data-format="mod"></output></div>
-          <div class="stat"><span class="stat__label">Dado vita</span><output class="stat__value" data-out="hitDie"></output></div>
-        </div>
-      </div>
-    </details>
-
-    <!-- 2. COMBATTIMENTO -->
+    <!-- 1. COMBATTIMENTO -->
     <details class="panel" data-panel="combat" open>
       <summary class="panel__header">
-        <span class="panel__index">2</span>
+        <span class="panel__index">1</span>
         <h2>Combattimento &amp; Punti Ferita</h2>
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
@@ -130,10 +107,10 @@
       </div>
     </details>
 
-    <!-- 3. CARATTERISTICHE -->
+    <!-- 2. CARATTERISTICHE -->
     <details class="panel" data-panel="abilities" open>
       <summary class="panel__header">
-        <span class="panel__index">3</span>
+        <span class="panel__index">2</span>
         <h2>Caratteristiche &amp; Tiri Salvezza</h2>
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
@@ -145,18 +122,68 @@
       </div>
     </details>
 
-    <!-- 4. ABILITÀ -->
-    <details class="panel" data-panel="skills">
+    <!-- 3. ABILITÀ -->
+    <details class="panel" data-panel="skills" open>
       <summary class="panel__header">
-        <span class="panel__index">4</span>
+        <span class="panel__index">3</span>
         <h2>Abilità</h2>
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
       <div class="panel__body">
+        <div class="class-skills" data-show-if="classInfo.skillSlots.length">
+          <h3 class="subhead">Competenze di classe</h3>
+          <div class="grid grid--3" data-list="class-skills"></div>
+          <p class="hint"><span data-out="classInfo.skillChoice"></span></p>
+        </div>
         <div class="checklist__legend"><span>Comp.</span><span>Maes.</span><span>Abilità</span><span>Bonus</span></div>
         <ul class="checklist checklist--2" data-list="skills"></ul>
         <div class="grid grid--3 grid--stats">
           <div class="stat"><span class="stat__label">Saggezza (Percezione) passiva</span><output class="stat__value" data-out="passivePerception"></output></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- 4. INFORMAZIONI GENERALI -->
+    <details class="panel" data-panel="info">
+      <summary class="panel__header">
+        <span class="panel__index">4</span>
+        <h2>Informazioni Generali &amp; Classe</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <div class="grid grid--3">
+          <label class="field"><span class="field__label">Nome personaggio</span>
+            <input type="text" data-bind="info.name" autocomplete="off" placeholder="Es. Thalia Corvoscuro"></label>
+          <label class="field"><span class="field__label">Giocatore</span>
+            <input type="text" data-bind="info.player" autocomplete="off"></label>
+          <label class="field"><span class="field__label">Razza</span>
+            <select data-bind="info.raceId" data-options="races"></select></label>
+          <label class="field"><span class="field__label">Background</span>
+            <input type="text" data-bind="info.background" autocomplete="off" placeholder="Es. Accolito"></label>
+          <label class="field"><span class="field__label">Allineamento</span>
+            <select data-bind="info.alignment" data-options="alignments"><option value="">—</option></select></label>
+          <label class="field"><span class="field__label">Classe</span>
+            <select data-bind="info.classId" data-options="classes"></select></label>
+        </div>
+        <div class="origin" data-show-if="race">
+          <p class="origin__title"><strong data-out="race.name"></strong> · <span data-out="className"></span></p>
+          <dl class="origin__list">
+            <div><dt>Bonus razziali</dt><dd data-out="race.bonuses"></dd></div>
+            <div><dt>Lingue</dt><dd data-out="race.languages"></dd></div>
+            <div><dt>Scurovisione</dt><dd data-out="race.darkvision"></dd></div>
+            <div><dt>Tratti</dt><dd data-out="race.traits"></dd></div>
+            <div><dt>Armature</dt><dd data-out="classInfo.armor"></dd></div>
+            <div><dt>Armi</dt><dd data-out="classInfo.weapons"></dd></div>
+            <div><dt>Strumenti</dt><dd data-out="classInfo.tools"></dd></div>
+            <div><dt>Abilità di classe</dt><dd data-out="classInfo.skillChoice"></dd></div>
+          </dl>
+          <div class="grid grid--3 origin__choices" data-list="race-choices" data-show-if="race.choices.length"></div>
+        </div>
+        <div class="grid grid--3 grid--stats">
+          <label class="field"><span class="field__label">Livello</span>
+            <input type="number" data-bind="info.level" min="1" max="20" inputmode="numeric"></label>
+          <div class="stat"><span class="stat__label">Bonus competenza</span><output class="stat__value" data-out="profBonus" data-format="mod"></output></div>
+          <div class="stat"><span class="stat__label">Dado vita</span><output class="stat__value" data-out="hitDie"></output></div>
         </div>
       </div>
     </details>
@@ -186,6 +213,13 @@
         <p class="notice notice--warning" data-show-if="armor.strengthWarning">
           Forza insufficiente (richiesta <span data-out="armor.strReq"></span>): la velocità si riduce di 3 metri.</p>
         <p class="notice" data-show-if="armor.stealthDisadvantage">Questa armatura impone svantaggio alle prove di Furtività.</p>
+
+        <div class="subhead-row">
+          <h3 class="subhead">Oggetti che modificano la CA</h3>
+          <button type="button" class="btn btn--teal" data-action="add-ac-item">+ Aggiungi oggetto</button>
+        </div>
+        <div class="ac-items" data-list="ac-items"></div>
+        <p class="hint" data-show-if="!hasAcItems">Anelli, mantelli, bracciali o altro che aumenta la CA. Il bonus si somma ad armatura e scudo.</p>
 
         <div class="subhead-row">
           <h3 class="subhead">Armi &amp; Attacchi</h3>
@@ -247,7 +281,7 @@
           <h3 class="subhead">Risorse di classe</h3>
           <div class="resources" data-list="resources"></div>
         </div>
-        <h3 class="subhead">Privilegi di <span data-out="className"></span></h3>
+        <h3 class="subhead" data-out="featuresTitle"></h3>
         <ol class="features" data-list="features"></ol>
         <div class="grid grid--2">
           <label class="field"><span class="field__label">Tratti razziali &amp; talenti</span>

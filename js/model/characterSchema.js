@@ -8,7 +8,9 @@
 import { ABILITY_IDS } from '../data/abilities.js';
 import { ARMOR_IDS } from '../data/armors.js';
 import { CLASS_IDS, DEFAULT_CLASS_ID, getClass } from '../data/classes.js';
+import { NO_RACE_ID, RACE_IDS } from '../data/races.js';
 import { SKILLS } from '../data/skills.js';
+const SKILL_IDS = SKILLS.map((s) => s.id);
 import { clamp, clampInt, isPlainObject } from '../core/utils.js';
 
 export const SCHEMA_VERSION = 1;
@@ -40,13 +42,30 @@ export function createWeapon() {
   };
 }
 
+export const MAX_AC_ITEMS = 10;
+
+export function createAcItem() {
+  return { id: createId(), name: '', bonus: 0 };
+}
+
+/** Un oggetto che modifica la CA: nome e bonus, validati come gli altri campi. */
+function normalizeAcItem(raw, index) {
+  const item = createAcItem();
+  if (!isPlainObject(raw)) return item;
+  item.name = sanitizeValue(`equipment.acItems.${index}.name`, raw.name, item.name);
+  item.bonus = sanitizeValue(`equipment.acItems.${index}.bonus`, raw.bonus, item.bonus);
+  return item;
+}
+
 export function createDefaultCharacter() {
   return {
     version: SCHEMA_VERSION,
     info: {
-      name: '', player: '', race: '', background: '', alignment: '',
+      name: '', player: '', raceId: NO_RACE_ID, background: '', alignment: '',
       classId: DEFAULT_CLASS_ID, level: 1,
+      raceChoices: { ability1: '', ability2: '', skill1: '', skill2: '', option: '' },
     },
+    classSkills: { skill1: '', skill2: '', skill3: '', skill4: '' },
     abilities: Object.fromEntries(ABILITY_IDS.map((id) => [id, 10])),
     saveProficiencies: classSaveProficiencies(DEFAULT_CLASS_ID),
     skills: Object.fromEntries(SKILLS.map((s) => [s.id, { proficient: false, expertise: false }])),
@@ -56,6 +75,7 @@ export function createDefaultCharacter() {
     },
     equipment: {
       armorId: 'none', shield: false, magicBonus: 0, inventory: '',
+      acItems: [],
       coins: { mr: 0, ma: 0, me: 0, mo: 0, mp: 0 },
     },
     weapons: [],
@@ -74,6 +94,12 @@ export function createDefaultCharacter() {
 const RULES = [
   [/^info\.level$/, (v) => clampInt(v, 1, 20)],
   [/^info\.classId$/, (v) => (CLASS_IDS.includes(v) ? v : undefined)],
+  [/^info\.raceId$/, (v) => (v === NO_RACE_ID || RACE_IDS.includes(v) ? v : undefined)],
+  [/^info\.raceChoices\.ability\d$/, (v) => (v === '' || ABILITY_IDS.includes(v) ? v : undefined)],
+  [/^(info\.raceChoices|classSkills)\.skill\d$/, (v) => (v === '' || SKILL_IDS.includes(v) ? v : undefined)],
+  [/^info\.raceChoices\.option$/, (v) => v.slice(0, 40)],
+  [/^equipment\.acItems\.\d+\.name$/, (v) => v.slice(0, 80)],
+  [/^equipment\.acItems\.\d+\.bonus$/, (v) => clampInt(v, -5, 10)],
   [/^abilities\.\w+$/, (v) => clampInt(v, 1, 30)],
   [/^combat\.hpMax$/, (v) => clampInt(v, 1, 999)],
   [/^combat\.(hpCurrent|hpTemp)$/, (v) => clampInt(v, 0, 999)],
@@ -162,6 +188,9 @@ export function normalizeCharacter(raw) {
   const usedIds = new Set();
   state.weapons = Array.isArray(raw.weapons)
     ? raw.weapons.slice(0, MAX_WEAPONS).map((w, i) => normalizeWeapon(w, i, usedIds))
+    : [];
+  state.equipment.acItems = Array.isArray(raw.equipment?.acItems)
+    ? raw.equipment.acItems.slice(0, MAX_AC_ITEMS).map((item, i) => normalizeAcItem(item, i))
     : [];
   state.version = SCHEMA_VERSION;
   return state;
