@@ -1,14 +1,15 @@
 /**
- * Orchestra accesso, pannello admin e scheda condivisa.
+ * Orchestra accesso, pannello del Master e scheda condivisa.
  *
- *   AuthView  <-->  SessionController  --> AuthService   (chi sono)
- *                          |            --> RemoteApi     (pannello admin)
+ *   AuthView  <-->  SessionController  --> AuthService   (chi sono: giocatore con token, Master con account)
+ *                          |            --> RemoteApi     (pannello del Master)
  *                          └──────────> CharacterController.attachRemote(sync)
  *
  * Senza configurazione del backend non fa nulla: l'app resta solo locale.
  */
 import { CharacterSync } from '../sync/CharacterSync.js';
 import { buildInviteLink, readTokenFromUrl, stripTokenFromUrl } from '../auth/AuthService.js';
+import { siteUrl, stripHash } from '../auth/AccountService.js';
 import { errorText } from '../view/AuthView.js';
 import { pick } from '../i18n/i18n.js';
 
@@ -22,10 +23,11 @@ export class SessionController {
   #history;
 
   #sync = null;
-  #openCharacterId = null;
   #sheetLabel = '';
   #syncState = 'online';
-  /** Stato del pannello admin (si ricostruisce a ogni modifica). */
+  /** Le campagne del Master sono state caricate dal server (se no, si è offline e non si apre nulla). */
+  #campaignsLoaded = false;
+  /** Stato del pannello del Master (si ricostruisce a ogni modifica). */
   #panel = { characters: [], loading: false, error: '' };
 
   /**
@@ -49,7 +51,18 @@ export class SessionController {
   async init() {
     this.#characters.onLanguageChange(() => this.#refresh());
 
-    // Link di invito (?t=TOKEN): entra e ripulisce l'indirizzo.
+    // Ritorno dal link dell'email: la sessione del Master è nel frammento dell'indirizzo (#access_token=…).
+    const comingBack = this.#auth.completeSignInFromUrl(this.#location.hash);
+    if (comingBack.status !== 'none') this.#history.replaceState(null, '', stripHash(this.#location.href));
+    if (comingBack.status === 'error') this.#status(errorText({ code: comingBack.code }));
+    if (comingBack.status === 'signedIn') {
+      await this.#auth.rotateSession();                                        // il refresh token dell'indirizzo non deve restare valido
+      // Il server ha rifiutato la sessione appena arrivata dal link (già usato altrove, o aperto da un'anteprima dell'email):
+      // niente accesso, ma l'utente deve saperlo.
+      if (!this.#auth.isMaster) this.#status(errorText({ code: 'link_expired' }));
+    }
+
+    // Link di invito di un giocatore (?t=TOKEN): entra e ripulisce l'indirizzo.
     const urlToken = readTokenFromUrl(this.#location.href);
     if (urlToken) {
       this.#history.replaceState(null, '', stripTokenFromUrl(this.#location.href));
@@ -59,7 +72,33 @@ export class SessionController {
         this.#status(errorText(error));
       }
     }
-    await this.#enterActiveSession({ autoOpenPanel: Boolean(urlToken) });
+
+    await this.#loadCampaigns();
+    await this.#enterActiveSession({ autoOpenPanel: comingBack.status === 'signedIn' });
+  }
+
+  // ----------------------------------------------------- Campagne del Master
+
+  /** Carica le campagne dell'account. Un login scaduto o rifiutato chiude la sessione del Master. */
+  async #loadCampaigns() {
+    this.#campaignsLoaded = false;
+    if (!this.#auth.isMaster) return;
+    try {
+      await this.#auth.refreshCampaigns();
+      this.#campaignsLoaded = true;
+    } catch (error) {
+      if (error?.code === 'auth_required') {
+        this.#status(errorText(error));
+        this.#signOutMaster();
+      } else {
+        this.#status(errorText(error)); // rete assente: si resta collegati, la scheda locale si usa lo stesso
+      }
+    }
+  }
+
+  /** Esce dall'account Master (ma non da un'eventuale sessione di giocatore). */
+  #signOutMaster() {
+    this.#auth.signOutMaster();
   }
 
   // -------------------------------------------------------- Ingresso
@@ -70,17 +109,21 @@ export class SessionController {
 
     if (session.role === 'player') {
       await this.#openCharacter(session.token, session.characterId, pick('la mia scheda', 'my sheet'));
-    } else {
-      this.#leaveRemote();
-      this.#refresh();
-      // Dopo un ricaricamento si riprende dalla scheda che si stava modificando.
-      const last = autoOpenPanel ? null : this.#auth.lastOpened;
-      if (last) await this.#openCharacter(session.token, last.id, last.label);
-      if (!this.#sync) await this.#openPanel();
+      return;
     }
+
+    this.#leaveRemote();
+    this.#refresh();
+    if (!this.#campaignsLoaded) return;            // offline: niente pannello, resta la scheda locale
+    if (!session.campaignId) return this.#openMasterHome();
+
+    // Dopo un ricaricamento si riprende dalla scheda che si stava modificando.
+    const last = autoOpenPanel ? null : this.#auth.lastOpened;
+    if (last) await this.#openCharacter(null, last.id, last.label);
+    if (!this.#sync) await this.#openPanel();
   }
 
-  /** Collega il Controller alla scheda condivisa indicata. */
+  /** Collega il Controller alla scheda condivisa indicata. `token` è nullo per il Master. */
   async #openCharacter(token, characterId, label) {
     const sync = new CharacterSync({
       api: this.#api, token, characterId, getLocal: () => this.#characters.currentSnapshot(),
@@ -90,8 +133,13 @@ export class SessionController {
       remote = await sync.load();
     } catch (error) {
       this.#status(errorText(error));
-      if (error?.isAuthFailure && this.#auth.active?.role === 'admin') this.#auth.rememberOpened(null); // scheda eliminata: resta l'accesso alla campagna
-      else if (error?.isAuthFailure) { this.#auth.logout(); this.#leaveRemote(); }
+      if (this.#auth.active?.role === 'admin') {
+        if (error?.code === 'auth_required') { this.#signOutMaster(); await this.#enterActiveSession(); return; }
+        if (error?.isAuthFailure) this.#auth.rememberOpened(null); // scheda eliminata: resta l'accesso alla campagna
+      } else if (error?.isAuthFailure) {
+        this.#auth.logout();
+        this.#leaveRemote();
+      }
       return this.#refresh();
     }
 
@@ -113,7 +161,6 @@ export class SessionController {
       this.#refresh();
     });
     this.#sync = sync;
-    this.#openCharacterId = characterId;
     this.#sheetLabel = label;
     this.#characters.attachRemote(sync, data, { upload });
     if (this.#auth.active?.role === 'admin') this.#auth.rememberOpened({ id: characterId, label });
@@ -123,23 +170,24 @@ export class SessionController {
 
   #leaveRemote() {
     this.#sync = null;
-    this.#openCharacterId = null;
     this.#syncState = 'online';
     this.#characters.detachRemote();
   }
 
-  #onRevoked() {
+  /** La sincronizzazione ha perso l'accesso: token ruotato (giocatore), scheda eliminata o login scaduto (Master). */
+  async #onRevoked() {
     this.#leaveRemote();
-    if (this.#auth.active?.role === 'admin') {
-      this.#auth.rememberOpened(null);
-      // L'admin ha ancora accesso alla campagna: era la scheda a non esistere più.
-      this.#status(pick('Scheda non più disponibile.', 'Sheet no longer available.'));
-      this.#openPanel();
-    } else {
+    if (this.#auth.active?.role !== 'admin') {
       this.#status(pick('Accesso revocato dal Master.', 'Access revoked by the DM.'));
       this.#auth.logout();
-      this.#enterActiveSession();
+      await this.#enterActiveSession();
+      return;
     }
+    this.#auth.rememberOpened(null);
+    await this.#loadCampaigns();                   // un login scaduto si scopre qui e chiude la sessione
+    if (!this.#auth.isMaster) { await this.#enterActiveSession(); return; }
+    this.#status(pick('Scheda non più disponibile.', 'Sheet no longer available.'));
+    await this.#enterActiveSession({ autoOpenPanel: true });
   }
 
   // ----------------------------------------------------------- Barra
@@ -148,6 +196,7 @@ export class SessionController {
     const session = this.#auth.active;
     this.#view.renderBar({
       session,
+      email: this.#auth.email,
       sheetLabel: this.#sync ? this.#sheetLabel : pick('locale (solo su questo dispositivo)', 'local (this device only)'),
       syncState: this.#sync ? this.#syncState : null,
       canManage: session?.role === 'admin',
@@ -161,13 +210,10 @@ export class SessionController {
   #showLogin() {
     this.#view.showLogin({
       onLogin: async (token) => {
-        const session = await this.#auth.login(token);
-        await this.#enterActiveSession({ autoOpenPanel: session.role === 'admin' });
+        await this.#auth.login(token);
+        await this.#enterActiveSession();
       },
-      onCreate: async (name) => {
-        await this.#auth.createCampaign(name);
-        await this.#enterActiveSession({ autoOpenPanel: true });
-      },
+      onSendLink: (email) => this.#auth.requestLink(email, siteUrl(this.#location.href)),
     });
   }
 
@@ -178,9 +224,29 @@ export class SessionController {
     this.#enterActiveSession();
   }
 
-  // -------------------------------------------------- Pannello admin
+  // ------------------------------------------- Crea o rivendica una campagna
+
+  #openMasterHome() {
+    const hasCampaigns = this.#auth.campaigns.length > 0;
+    this.#view.showMasterHome({ email: this.#auth.email, hasCampaigns }, {
+      onCreate: async (name, code) => {
+        await this.#auth.createCampaign(name, code);
+        await this.#enterActiveSession({ autoOpenPanel: true });
+      },
+      onClaim: async (token) => {
+        await this.#auth.claimCampaign(token);
+        await this.#enterActiveSession({ autoOpenPanel: true });
+      },
+      onBack: hasCampaigns ? () => this.#openPanel() : null,
+    });
+    // La finestra si apre subito; il campo "Codice" compare appena il server dice che serve.
+    this.#auth.creationRequiresCode().then((required) => { if (required) this.#view.revealCreationCode(); });
+  }
+
+  // -------------------------------------------------- Pannello del Master
 
   async #openPanel() {
+    if (!this.#auth.active?.campaignId) return this.#openMasterHome();
     this.#panel = { characters: this.#panel.characters, loading: true, error: '' };
     this.#renderPanel();
     await this.#reloadCharacters();
@@ -188,26 +254,39 @@ export class SessionController {
 
   async #reloadCharacters() {
     const session = this.#auth.active;
-    if (session?.role !== 'admin') return;
+    if (session?.role !== 'admin' || !session.campaignId) return;
     try {
-      this.#panel.characters = (await this.#api.rpc('list_characters', { p_admin_token: session.token })) ?? [];
+      this.#panel.characters = (await this.#api.rpc('list_characters', { p_campaign_id: session.campaignId })) ?? [];
       this.#panel.error = '';
     } catch (error) {
       this.#panel.error = errorText(error);
-      if (error?.isAuthFailure) this.#auth.logout();
+      if (error?.isAuthFailure) { await this.#recoverFromAuthFailure(error); return; }
     }
     this.#panel.loading = false;
     this.#renderPanel();
   }
 
-  /** Esegue un comando admin e ricarica l'elenco; gli errori restano nel pannello. */
+  /** Login scaduto → si esce da Master; campagna sparita (eliminata altrove) → si ricarica l'elenco. */
+  async #recoverFromAuthFailure(error) {
+    this.#panel = { characters: [], loading: false, error: '' };
+    if (error.code === 'auth_required') {
+      this.#status(errorText(error));
+      this.#signOutMaster();
+    } else {
+      await this.#loadCampaigns();
+    }
+    this.#view.close();
+    await this.#enterActiveSession({ autoOpenPanel: true });
+  }
+
+  /** Esegue un comando del Master e ricarica l'elenco; gli errori restano nel pannello. */
   async #adminCall(fn, args) {
-    const session = this.#auth.active;
     try {
-      const result = await this.#api.rpc(fn, { p_admin_token: session.token, ...args });
+      const result = await this.#api.rpc(fn, args);
       await this.#reloadCharacters();
       return result;
     } catch (error) {
+      if (error?.isAuthFailure) { await this.#recoverFromAuthFailure(error); return undefined; }
       this.#panel.error = errorText(error);
       this.#renderPanel();
       return undefined;
@@ -216,15 +295,15 @@ export class SessionController {
 
   #renderPanel() {
     const session = this.#auth.active;
-    if (session?.role !== 'admin') return;
+    if (session?.role !== 'admin' || !session.campaignId) return;
     const base = this.#location.href;
     const find = (id) => this.#panel.characters.find((c) => c.id === id);
     const title = (c) => c.label || c.char_name || pick('Senza nome', 'Unnamed');
 
     this.#view.showAdmin({
       campaignName: session.campaignName,
-      adminToken: session.token,
-      campaigns: this.#auth.adminSessions.map((s) => ({ token: s.token, name: s.campaignName, active: s.token === session.token })),
+      email: this.#auth.email,
+      campaigns: this.#auth.campaigns.map((c) => ({ id: c.id, name: c.name, active: c.id === session.campaignId })),
       characters: this.#panel.characters.map((c) => ({
         id: c.id,
         title: title(c),
@@ -236,13 +315,13 @@ export class SessionController {
       error: this.#panel.error,
     }, {
       copy: async (text) => { if (await this.#view.copy(text)) this.#status(pick('Copiato ✓', 'Copied ✓')); },
-      switchCampaign: async (token) => { this.#auth.switchTo(token); await this.#enterActiveSession({ autoOpenPanel: true }); },
-      newCampaign: () => { this.#view.close(); this.#showLogin(); },
+      switchCampaign: async (campaignId) => { this.#auth.selectCampaign(campaignId); await this.#enterActiveSession({ autoOpenPanel: true }); },
+      newCampaign: () => this.#openMasterHome(),
       renameCampaign: async () => {
         const name = this.#view.prompt(pick('Nuovo nome della campagna:', 'New campaign name:'), session.campaignName)?.trim();
         if (!name) return;
-        if (await this.#tryRpc('rename_campaign', { p_admin_token: session.token, p_name: name }) !== undefined) {
-          this.#auth.updateCampaignName(session.token, name);
+        if (await this.#tryRpc('rename_campaign', { p_campaign_id: session.campaignId, p_name: name }) !== undefined) {
+          this.#auth.updateCampaignName(session.campaignId, name);
           this.#refresh();
           this.#renderPanel();
         }
@@ -251,13 +330,14 @@ export class SessionController {
         if (!this.#view.confirm(pick(
           `Eliminare la campagna "${session.campaignName}" e TUTTE le sue schede? Non è reversibile.`,
           `Delete the campaign "${session.campaignName}" and ALL its sheets? This cannot be undone.`))) return;
-        if (await this.#tryRpc('delete_campaign', { p_admin_token: session.token }) !== undefined) {
-          this.#auth.logout();
+        if (await this.#tryRpc('delete_campaign', { p_campaign_id: session.campaignId }) !== undefined) {
+          this.#panel = { characters: [], loading: false, error: '' };
+          await this.#loadCampaigns();
           this.#view.close();
           await this.#enterActiveSession();
         }
       },
-      createCharacter: (label) => this.#adminCall('create_character', { p_label: label }),
+      createCharacter: (label) => this.#adminCall('create_character', { p_campaign_id: session.campaignId, p_label: label }),
       rename: async (id) => {
         const current = find(id);
         const label = this.#view.prompt(pick('Etichetta della scheda:', 'Sheet label:'), current?.label ?? '');
@@ -278,7 +358,7 @@ export class SessionController {
       },
       open: (id) => {
         const current = find(id);
-        return this.#openCharacter(session.token, id, current ? title(current) : '');
+        return this.#openCharacter(null, id, current ? title(current) : '');
       },
     });
   }
@@ -287,6 +367,7 @@ export class SessionController {
     try {
       return (await this.#api.rpc(fn, args)) ?? null;
     } catch (error) {
+      if (error?.isAuthFailure) { await this.#recoverFromAuthFailure(error); return undefined; }
       this.#panel.error = errorText(error);
       this.#renderPanel();
       return undefined;

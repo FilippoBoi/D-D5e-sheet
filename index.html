@@ -7,6 +7,9 @@
   <meta name="theme-color" content="#101416">
   <!-- I link di invito contengono un token: non va mai inviato come Referer ad altri siti -->
   <meta name="referrer" content="no-referrer">
+  <!-- Il Master resta collegato con un token nel browser: la pagina carica solo i propri file e parla solo con
+       sé stessa e con Supabase (https://*.supabase.co). Se il progetto usa un dominio personalizzato, aggiungilo a connect-src. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'none'; form-action 'none'">
   <title>Scheda Personaggio D&amp;D 5E</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23BF2215' d='M16 1 29 8.5v15L16 31 3 23.5v-15z'/%3E%3Cpath fill='%23101416' d='M16 7l7 12H9z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/styles.css">
