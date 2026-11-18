@@ -10,7 +10,7 @@ import { getLang, loc, pick } from '../i18n/i18n.js';
 import { getAbility } from '../data/abilities.js';
 import { SKILLS } from '../data/skills.js';
 import { getSpell } from '../data/spells.js';
-import { getSkillText, loadSpellText } from '../data/descriptions.js';
+import { getSkillText, loadSpellText, textLang } from '../data/descriptions.js';
 import { castTimeText, durationText, levelLabel, rangeText, schoolName, sourceText } from '../model/spellText.js';
 
 const SRD_URL = 'https://dnd.wizards.com/resources/systems-reference-document';
@@ -102,7 +102,6 @@ function open({ title, alt, subtitle, facts = () => [], entry, where }) {
     factsList.hidden = !factsList.childElementCount;
   };
   fillFacts(undefined);
-  const langBtn = el('button', { type: 'button', class: 'btn btn--ghost', hidden: true });
   const closeBtn = el('button', { type: 'button', class: 'btn', text: pick('Chiudi', 'Close') });
   closeBtn.addEventListener('click', () => dialog.close());
 
@@ -127,18 +126,10 @@ function open({ title, alt, subtitle, facts = () => [], entry, where }) {
     body.removeAttribute('aria-busy');
     fillFacts(data);
     if (!data) { body.replaceChildren(el('p', { class: 'dialog__hint', text: pick('Nessuna descrizione disponibile.', 'No description available.') })); return; }
-    // L'altra lingua è un clic: utile per confrontare i termini con il manuale in inglese o in italiano.
-    let lang = getLang();
-    const paint = () => {
-      body.replaceChildren(...renderRichText(data[lang] || data.it));
-      langBtn.textContent = lang === 'it' ? 'Show in English' : 'Mostra in italiano';
-      langBtn.lang = lang === 'it' ? 'en' : 'it';
-      body.lang = lang;
-    };
-    langBtn.addEventListener('click', () => { lang = lang === 'it' ? 'en' : 'it'; paint(); });
-    langBtn.hidden = false;
-    foot.replaceChildren(notice(data, where), langBtn, closeBtn);
-    paint();
+    const lang = textLang(data);
+    body.lang = lang;
+    body.replaceChildren(...renderRichText(data[lang]));
+    foot.replaceChildren(notice(data, where), closeBtn);
   }, () => {
     body.removeAttribute('aria-busy');
     body.replaceChildren(el('p', { class: 'dialog__error', role: 'alert', text: pick('Impossibile caricare la descrizione. Controlla la connessione e riprova.', 'Could not load the description. Check your connection and try again.') }));

@@ -9,6 +9,17 @@
  * @typedef {Description & {time?: [string, string], mat?: string}} SpellDescription
  */
 import { SKILL_TEXT } from './generated/skillDescriptions.js';
+import { DEFAULT_LANG, LANGUAGES, getLang } from '../i18n/i18n.js';
+
+/**
+ * Lingue in cui le descrizioni DEVONO esistere: sono quelle dell'interfaccia (i18n.js). Ogni voce
+ * generata ha una chiave per codice lingua (`it`, `en`…); aggiungere una lingua all'app senza i
+ * suoi testi fa fallire tests/descriptions.test.js, che elenca cosa manca.
+ */
+export const DESCRIPTION_LANGS = Object.freeze(LANGUAGES.map((l) => l.code));
+
+/** Lingua in cui mostrare una voce: quella dell'interfaccia, altrimenti l'italiano. */
+export const textLang = (entry) => (entry?.[getLang()] ? getLang() : DEFAULT_LANG);
 
 /** @param {string} id @returns {(Description & {page?: number}) | undefined} */
 export const getSkillText = (id) => SKILL_TEXT[id];

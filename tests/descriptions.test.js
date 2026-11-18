@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 
 import { SKILLS } from '../js/data/skills.js';
 import { SPELL_LIST } from '../js/data/spells.js';
-import { getSkillText, loadSpellText } from '../js/data/descriptions.js';
+import { DESCRIPTION_LANGS, getSkillText, loadSpellText, textLang } from '../js/data/descriptions.js';
 import { SPELL_TEXT } from '../js/data/generated/spellDescriptions.js';
+import { setLang } from '../js/i18n/i18n.js';
 import { parseInline, parseRichText } from '../js/model/richText.js';
 
 // ------------------------------------------------------------------ copertura
@@ -70,4 +71,24 @@ test('nessun testo conserva asterischi o barre del Markdown', async () => {
       }
     }
   }
+});
+
+// ------------------------------------------------------------------ lingue
+
+test('le descrizioni esistono in tutte le lingue dell’interfaccia (elenca cosa manca)', async () => {
+  const missing = [];
+  for (const lang of DESCRIPTION_LANGS) {
+    for (const skill of SKILLS) if (!getSkillText(skill.id)?.[lang]) missing.push(`${lang}: abilità ${skill.id}`);
+    for (const spell of SPELL_LIST) if (!(await loadSpellText(spell.id))?.[lang]) missing.push(`${lang}: ${spell.id}`);
+  }
+  assert.deepEqual(missing.slice(0, 10), [], `${missing.length} descrizioni mancanti`);
+});
+
+test('il testo segue la lingua dell’interfaccia, con ripiego sull’italiano', () => {
+  const entry = { it: 'ciao', en: 'hello' };
+  setLang('en');
+  assert.equal(textLang(entry), 'en');
+  assert.equal(textLang({ it: 'solo italiano' }), 'it');
+  setLang('it');
+  assert.equal(textLang(entry), 'it');
 });

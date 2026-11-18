@@ -20,6 +20,9 @@ import { SPELL_LIST } from '../js/data/spells.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => readFileSync(join(ROOT, 'docs', file), 'utf8');
+/** Bandiera che apre il blocco di ogni lingua nei Markdown; per una nuova lingua basta aggiungerla qui (e in i18n.js). */
+const FLAGS = { it: '🇮🇹', en: '🇬🇧' };
+const LANGS = Object.keys(FLAGS);
 const fail = (message) => { throw new Error(message); };
 
 /** Separa il contenuto di un'entry in blocchi di testo, togliendo i separatori `---`. */
@@ -50,16 +53,14 @@ function parseSpellEntry(heading, body) {
     const key = LINE_KEYS[/^- \*\*([^/*]+?)\s*\//.exec(line)?.[1]];
     if (key) lines[key] = bilingualLine(line);
   }
-  const itAt = body.indexOf('**🇮🇹**');
-  const enAt = body.indexOf('**🇬🇧**');
-  if (itAt < 0 || enAt < itAt) fail(`${nameEn}: mancano i blocchi 🇮🇹/🇬🇧`);
-  const it = trimBlock(body.slice(itAt + 1, enAt));
-  const en = trimBlock(body.slice(enAt + 1));
-  if (!it || !en) fail(`${nameEn}: testo vuoto`);
+  const starts = LANGS.map((lang) => body.indexOf(`**${FLAGS[lang]}**`));
+  if (starts.some((at, i) => at < 0 || (i && at < starts[i - 1]))) fail(`${nameEn}: blocchi ${LANGS.map((l) => FLAGS[l]).join('/')} mancanti o in ordine diverso`);
+  const texts = Object.fromEntries(LANGS.map((lang, i) => [lang, trimBlock(body.slice(starts[i] + 1, starts[i + 1] ?? body.length))]));
+  if (LANGS.some((lang) => !texts[lang])) fail(`${nameEn}: testo vuoto`);
 
   // Si tiene solo ciò che i codici del catalogo non dicono (la condizione di una reazione, i
   // materiali); il resto lo ricava l'app dal catalogo, anche per la concentrazione.
-  const out = { it, en };
+  const out = { ...texts };
   if (!srd) out.sum = 1;
   if (lines.time && (lines.time[0].includes(',') || lines.time[1].includes(','))) out.time = lines.time;
   if (lines.comp && /\(/.test(lines.comp[0])) out.mat = lines.comp[0].replace(/^[^(]*/, '').trim();
@@ -86,12 +87,12 @@ function parseSkills() {
     const nameEn = heading.split(' / ').pop().trim();
     const skill = SKILLS.find((s) => s.nameEn === nameEn);
     if (!skill) continue; // «Indice / Index»
-    const itAt = body.findIndex((l) => l.startsWith('### 🇮🇹'));
-    const enAt = body.findIndex((l) => l.startsWith('### 🇬🇧'));
-    if (itAt < 0 || enAt < itAt) fail(`${nameEn}: mancano le sezioni 🇮🇹/🇬🇧`);
+    const starts = LANGS.map((lang) => body.findIndex((l) => l.startsWith(`### ${FLAGS[lang]}`)));
+    if (starts.some((at, i) => at < 0 || (i && at < starts[i - 1]))) fail(`${nameEn}: sezioni mancanti o in ordine diverso`);
+    const itAt = starts[0];
     const meta = body.slice(0, itAt).join(' ');
     const page = /PHB p\. (\d+)/.exec(meta)?.[1];
-    const out = { it: trimBlock(body.slice(itAt + 1, enAt)), en: trimBlock(body.slice(enAt + 1)) };
+    const out = Object.fromEntries(LANGS.map((lang, i) => [lang, trimBlock(body.slice(starts[i] + 1, starts[i + 1] ?? body.length))]));
     if (page) out.page = Number(page);
     if (!/\*SRD 5\.1\*/.test(meta)) out.sum = 1;
     result[skill.id] = out;
