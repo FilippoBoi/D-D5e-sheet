@@ -203,6 +203,18 @@ export class CharacterView {
       const value = Boolean(getByPath(derived, negate ? expr.slice(1) : expr));
       node.hidden = negate ? value : !value;
     });
+    // Competenza concessa da razza, background o classe: spuntata e bloccata.
+    const autoProf = new Set(derived.proficientFromSources);
+    this.#qa('input[data-bind$=".proficient"]').forEach((box) => {
+      const m = /^skills\.([^.]+)\.proficient$/.exec(box.dataset.bind);
+      if (!m) return;
+      const locked = autoProf.has(m[1]);
+      box.disabled = locked;
+      if (locked) box.checked = true;
+      box.title = locked
+        ? pick('Competenza concessa da razza, background o classe', 'Proficiency granted by race, background or class')
+        : pick('Competenza', 'Proficiency');
+    });
     // Maestria concessa da una scelta di classe: spuntata e bloccata, per non confonderla con quella manuale.
     const fromChoices = new Set(derived.expertiseFromChoices);
     this.#qa('input.expertise').forEach((box) => {

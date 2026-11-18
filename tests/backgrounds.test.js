@@ -37,3 +37,12 @@ test('background sconosciuto rifiutato; il testo libero resta disponibile', () =
   model.set('info.backgroundId', 'nope');
   assert.equal(model.get('info.backgroundId'), '');
 });
+
+test('le competenze del background risultano spuntate (bloccate) nelle abilità', () => {
+  const model = new CharacterModel();
+  model.set('info.backgroundId', 'soldier');
+  const auto = model.getDerived().proficientFromSources;
+  assert.ok(auto.includes('athletics') && auto.includes('intimidation'));
+  model.set('skills.arcana.proficient', true);
+  assert.ok(!model.getDerived().proficientFromSources.includes('arcana'), 'quelle manuali restano modificabili');
+});

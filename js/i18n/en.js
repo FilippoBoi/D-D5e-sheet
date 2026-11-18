@@ -18,6 +18,7 @@ export const UI_EN = {
   'Importa': 'Import',
   'Reset': 'Reset',
   'Lingua': 'Language',
+  'Cambia tema (chiaro/scuro)': 'Switch theme (light/dark)',
 
   // Manuali
   'Manuali': 'Sourcebooks',
