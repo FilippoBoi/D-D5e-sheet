@@ -308,15 +308,23 @@ export class CharacterView {
 
   /** Menu a tendina per le competenze in abilità scelte dalla classe. */
   #renderClassSkills(slots) {
-    const key = slots.map((s) => `${s.key}:${s.options.length}`).join('|');
+    const key = slots.map((s) => `${s.key}:${s.duplicate}:${s.options.map((o) => o.value).join(',')}`).join('|');
     if (!this.#shouldRebuild('class-skills', key)) return;
 
     this.#q('[data-list="class-skills"]').replaceChildren(...slots.map((slot, i) => el('label', { class: 'field' }, [
       el('span', { class: 'field__label', text: `${pick('Abilità di classe', 'Class skill')} ${i + 1}` }),
-      el('select', { dataset: { bind: `classSkills.${slot.key}` } }, [
+      el('select', {
+        'aria-invalid': slot.duplicate ? 'true' : null,
+        'aria-describedby': slot.duplicate ? `class-skill-dup-${slot.key}` : null,
+        dataset: { bind: `classSkills.${slot.key}` },
+      }, [
         el('option', { value: '', text: '—' }),
         ...slot.options.map((o) => el('option', { value: o.value, text: o.label })),
       ]),
+      slot.duplicate ? el('small', {
+        class: 'field__error', id: `class-skill-dup-${slot.key}`, role: 'status',
+        text: pick('Già competente per razza o background: scegline un\'altra.', 'Already proficient from race or background: pick another.'),
+      }) : null,
     ])));
   }
 

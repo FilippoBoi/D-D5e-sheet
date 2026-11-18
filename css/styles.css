@@ -533,3 +533,5 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   background: var(--card); border: 1px solid var(--gold); border-radius: 999px;
 }
 .choice__chip:hover { background: var(--card-raised); }
+.field__error { color: var(--gold); font-size: 0.8rem; }
+.field select[aria-invalid="true"] { border-color: var(--gold); }
