@@ -17,7 +17,7 @@ The interface is available in **Italian and English** (flag selector in the head
 | **3. Abilities** | Instant modifier `floor((score − 10) / 2)`, saving throws with proficiencies set by the class |
 | **4. Skills** | The 18 official skills with proficiency, Expertise and the Bard's Jack of All Trades; passive Perception |
 | **5. Equipment** | Every Player's Handbook armor (light, medium with max DEX +2, heavy with a fixed value), +2 shield, magic bonus, Strength requirement and Stealth disadvantage, Barbarian and Monk Unarmored Defense, weapon table with automatic to-hit, coins, inventory |
-| **6. Spells** | Shown only to spellcasters. Spellcasting ability, DC, attack bonus, slots per level (full casters, half casters from level 2, Warlock Pact Magic) |
+| **6. Spells** | Shown only to spellcasters. Spellcasting ability, DC, attack bonus, slots per level (full casters, half casters from level 2, Warlock Pact Magic), and **chosen cantrips and spells** picked from a list of about 500 entries (see below) |
 | **7. Features** | Class features unlocked level by level and scaling resources (Rage uses, Ki points, Sneak Attack dice…) |
 
 Also: collapsible sections that remember their state, a sticky summary bar, JSON export and import, a responsive layout for mobile and desktop, and print styles.
@@ -35,6 +35,7 @@ js/
 ├── data/                       ← static D&D 5E rules (data only)
 │   ├── abilities.js  skills.js  armors.js  classes.js
 │   ├── classFeatures.js  classResources.js  spellSlots.js
+│   ├── spells.js  spellNames.js  spellProgression.js   ← spells (generated/spells.js from 5e.tools)
 ├── model/                      ← MODEL: state and rules, no DOM access
 │   ├── CharacterModel.js       ← single source of truth, emits 'change'
 │   ├── characterSchema.js      ← default state + validation of every value
@@ -75,6 +76,16 @@ tests/                          ← tests using Node's built-in runner
 - The **Controller** contains neither rules nor DOM code: it routes events and commands.
 
 Every incoming value, whether from an input, from `localStorage` or from an imported file, goes through `sanitizeValue()`. This keeps the state valid even with old or tampered saves.
+
+### Cantrips and spells
+
+In the **Spells** panel, “Choose cantrips” and “Choose spells” open a popup (full screen on phones) with search by Italian or English name, filters for level, rituals and concentration, and one tap to add or remove: changes are saved right away. Each entry shows school, casting time, range, components, duration and the sourcebook reference (“PHB, p. 241”); descriptions are not copied.
+
+- The list offered is the **class spell list** (Eldritch Knight and Arcane Trickster use the Wizard list); “Other classes” widens it, and additions from supplements (Xanathar's, Tasha's…) appear once that book is turned on in “Sourcebooks”.
+- “All” shows spells up to the level of your slots; “Higher” shows the rest.
+- The counter (e.g. `3/4`) follows the PHB tables: cantrips and spells known, or modifier + level for prepared casters (Cleric, Druid, Wizard; Paladin uses half level). It is a guide, not a block: it turns red past the limit (feats, house rules…).
+- Changing class clears the lists (they belonged to the old class's list). The two free-text fields remain, under “Other spells, by hand”, for anything not in the list.
+- Names: Italian only for the official ones the project already knows (`js/data/spellNames.js`), otherwise the English title; search finds both.
 
 ## Running it locally
 

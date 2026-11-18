@@ -165,6 +165,8 @@ export class CharacterController {
       'add-weapon': () => this.#model.addWeapon(),
       'toggle-source': () => this.#model.toggleSource(data.sourceId),
       'toggle-choice': () => this.#model.toggleChoice(data.choiceKey, data.choiceValue),
+      'toggle-spell': () => this.#model.toggleSpell(data.kind, data.spellId),
+      'pick-spells': () => this.#view.openSpellPicker(data.kind, this.#model.getSpellOptions(data.kind), this.#model.getDerived().spellcasting),
       'add-ac-item': () => this.#model.addAcItem(),
       'remove-ac-item': () => this.#model.removeAcItem(data.id),
       'remove-weapon': () => this.#model.removeWeapon(data.id),

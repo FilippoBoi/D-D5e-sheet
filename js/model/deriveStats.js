@@ -10,6 +10,9 @@ import {
   ARMOR_CATEGORIES, ARMOR_CATEGORIES_EN, MEDIUM_ARMOR_MAX_DEX, getArmor,
 } from '../data/armors.js';
 import { CLASS_STARTING, getClass } from '../data/classes.js';
+import { getSpell } from '../data/spells.js';
+import { spellLimits } from '../data/spellProgression.js';
+import { describeSpell } from './spellText.js';
 import { feetToMeters, getRace } from '../data/races.js';
 import { getBackground } from '../data/backgrounds.js';
 import { getClassFeatures } from '../data/classFeatures.js';
@@ -18,7 +21,7 @@ import { resolveRaceTraits } from '../data/raceTraits.js';
 import { CLASS_LANGUAGES, LANGUAGES, MAX_LANGUAGE_PICKS, parseLanguageText } from '../data/languages.js';
 import { SKILLS } from '../data/skills.js';
 import { clamp, formatModifier } from '../core/utils.js';
-import { loc, pick } from '../i18n/i18n.js';
+import { getLang, loc, pick } from '../i18n/i18n.js';
 import { choiceFeatureRows, describeChoiceGroups, resolveClassChoices } from './classChoices.js';
 import {
   abilityModifier, attackBonus, averageHpGain, computeArmorClass, proficiencyBonus, skillBonus,
@@ -134,6 +137,18 @@ export function deriveStats(state, { sources = null } = {}) {
       return { ...slot, used, remaining: `${slot.max - used}/${slot.max}` };
     })
     : [];
+
+  // Incantesimi scelti: lista di riferimento, tetto di livello e limiti indicativi (vedi data/spellProgression.js).
+  const listClass = casting?.list ?? cls.id;
+  const limits = isCaster ? spellLimits(casting.table ?? cls.id, level, castMod) : { cantrips: 0, spells: 0, kind: 'known' };
+  const chosenSpells = (ids) => ids.map(getSpell).filter(Boolean).map(describeSpell)
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name, getLang()));
+  const spellPick = (ids, limit) => ({
+    limit, count: ids.length, over: Math.max(0, ids.length - limit), selected: chosenSpells(ids),
+    status: ids.length > limit ? 'over' : ids.length === limit ? 'full' : 'open',
+  });
+  const cantripPick = spellPick(state.spells.cantripIds, limits.cantrips);
+  const spellsPick = spellPick(state.spells.spellIds, limits.spells);
 
   // --- Punti ferita ---
   const { hpMax, hpCurrent } = state.combat;
@@ -309,6 +324,15 @@ export function deriveStats(state, { sources = null } = {}) {
       attack: spellAttackBonus(profBonus, castMod),
       isPact: casting?.progression === 'pact',
       slots,
+      listClass,
+      listClassName: loc(getClass(listClass)),
+      maxLevel: slots.reduce((max, slot) => Math.max(max, slot.level), 0),
+      knowledge: limits.kind,
+      spellsTitle: limits.kind === 'prepared' ? pick('Incantesimi preparati', 'Spells prepared') : pick('Incantesimi conosciuti', 'Spells known'),
+      listFromSubclass: Boolean(casting?.table),
+      showCantrips: cantripPick.limit > 0 || cantripPick.count > 0,
+      cantrips: cantripPick,
+      spells: spellsPick,
     },
 
     features,

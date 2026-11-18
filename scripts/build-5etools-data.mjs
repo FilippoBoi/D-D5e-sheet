@@ -4,7 +4,7 @@
  *
  *   node scripts/build-5etools-data.mjs [--src <cartella con i JSON già scaricati>]
  *
- * Scrive js/data/generated/{races,backgrounds,subclasses}.js. Si esegue a mano quando si vuole
+ * Scrive js/data/generated/{races,backgrounds,subclasses,spells}.js. Si esegue a mano quando si vuole
  * aggiornare i dati; i file generati sono versionati, quindi l'app e i test non hanno bisogno di rete.
  *
  * Per scelta NON si copia il testo dei manuali: si estraggono solo dati strutturati (velocità,
@@ -209,12 +209,98 @@ async function subclasses() {
   return out;
 }
 
+// ----------------------------------------------------------- Incantesimi
+const SPELL_CLASSES = new Set(CLASSES);
+const TIME_UNITS = { action: 'a', bonus: 'b', reaction: 'r', minute: 'm', hour: 'h' };
+const DURATION_UNITS = { round: 'r', minute: 'm', hour: 'h', day: 'd' };
+
+/** Tempo di lancio compatto: "1a" azione, "1b" azione bonus, "1r" reazione, "10m" minuti, "1h" ore. */
+const castTime = (time) => {
+  const t = time?.[0];
+  const unit = TIME_UNITS[t?.unit];
+  return unit ? `${t.number}${unit}` : 'x';
+};
+
+/** Gittata compatta: "self", "touch", "sight", "unl", "special" oppure "60ft" / "1mi". */
+const spellRange = (range) => {
+  if (range?.type === 'special') return 'special';
+  const d = range?.distance;
+  if (!d) return 'special';
+  if (d.type === 'self') return 'self';
+  if (d.type === 'touch') return 'touch';
+  if (d.type === 'sight') return 'sight';
+  if (d.type === 'unlimited') return 'unl';
+  if (d.type === 'feet') return `${d.amount}ft`;
+  if (d.type === 'miles') return `${d.amount}mi`;
+  return 'special';
+};
+
+/** Durata compatta: "inst", "perm", "special", oppure "1r" / "1m" / "8h" / "24h"; più il flag di concentrazione. */
+const spellDuration = (durations) => {
+  const d = durations?.[0];
+  if (!d) return { dur: 'special', conc: false };
+  if (d.type === 'instant') return { dur: 'inst', conc: false };
+  if (d.type === 'permanent') return { dur: 'perm', conc: false };
+  if (d.type === 'timed') {
+    const unit = DURATION_UNITS[d.duration?.type];
+    return { dur: unit ? `${d.duration.amount}${unit}` : 'special', conc: Boolean(d.concentration) };
+  }
+  return { dur: 'special', conc: false };
+};
+
+async function spells() {
+  const index = await load('spells/index.json');
+  const lookup = await load('generated/gendata-spell-source-lookup.json');
+  const out = [];
+  for (const [source, file] of Object.entries(index)) {
+    if (!allowed.has(source)) continue;
+    const data = await load(`spells/${file}`);
+    for (const sp of data.spell) {
+      if (sp.source !== source) continue;
+      // Liste di classe. `classes`: le classi che hanno l'incantesimo nel proprio manuale (o nel suo).
+      // `ext`: aggiunte di altri manuali (Xanathar, Tasha, SCAG…), valide solo se quel manuale è attivo.
+      const entry = lookup[source.toLowerCase()]?.[sp.name.toLowerCase()] ?? {};
+      const base = new Set(); const ext = new Map();
+      for (const group of [entry.class ?? {}, entry.classVariant ?? {}]) {
+        for (const byClass of Object.values(group)) {
+          for (const [name, how] of Object.entries(byClass)) {
+            const id = name.toLowerCase();
+            if (!SPELL_CLASSES.has(id)) continue;
+            const defined = how === true ? [source] : (how.definedInSources ?? [source]);
+            if (defined.includes(source)) base.add(id);
+            else for (const src of defined.filter((d) => allowed.has(d))) ext.set(`${id}|${src}`, [id, src]);
+          }
+        }
+      }
+      for (const key of [...ext.keys()]) if (base.has(key.split('|')[0])) ext.delete(key);
+      const classes = [...base].sort();
+      const { dur, conc } = spellDuration(sp.duration);
+      out.push({
+        id: `${source.toLowerCase()}-${slug(sp.name)}`, name: sp.name, level: sp.level, school: sp.school,
+        time: castTime(sp.time), range: spellRange(sp.range),
+        comp: `${sp.components?.v ? 'V' : ''}${sp.components?.s ? 'S' : ''}${sp.components?.m ? 'M' : ''}`,
+        dur, conc, ritual: Boolean(sp.meta?.ritual), source, page: sp.page ?? null, classes,
+        ...(ext.size ? { ext: [...ext.values()].sort() } : {}),
+      });
+    }
+  }
+  // Una sola voce per nome (alcune ristampe): vince il manuale più "base", poi l'ordine di SOURCES.
+  const rank = new Map(SOURCE_IDS.map((id, i) => [id, i]));
+  const byName = new Map();
+  for (const sp of out.sort((a, b) => rank.get(a.source) - rank.get(b.source))) if (!byName.has(sp.name)) byName.set(sp.name, sp);
+  return [...byName.values()].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name, 'en'));
+}
+
 const write = (file, doc, name, value) => {
   mkdirSync(OUT, { recursive: true });
-  writeFileSync(join(OUT, file), `/**\n * ${doc}\n * GENERATO da scripts/build-5etools-data.mjs (dati 5e.tools): non modificare a mano.\n */\nexport const ${name} = ${JSON.stringify(value, null, 1)};\n`);
+  const body = Array.isArray(value) && value.every((x) => x && !Array.isArray(x) && typeof x === 'object' && file === 'spells.js')
+    ? `[\n${value.map((x) => ` ${JSON.stringify(x)}`).join(',\n')},\n]`
+    : JSON.stringify(value, null, 1);
+  writeFileSync(join(OUT, file), `/**\n * ${doc}\n * GENERATO da scripts/build-5etools-data.mjs (dati 5e.tools): non modificare a mano.\n */\nexport const ${name} = ${body};\n`);
 };
 
 write('races.js', 'Razze e sottorazze degli altri manuali.', 'EXTRA_RACES', await races());
 write('backgrounds.js', 'Background degli altri manuali.', 'EXTRA_BACKGROUNDS', await backgrounds());
 write('subclasses.js', 'Sottoclassi degli altri manuali, per classe.', 'EXTRA_SUBCLASSES', await subclasses());
+write('spells.js', 'Incantesimi e trucchetti di tutti i manuali: solo dati strutturati, niente testo dei manuali.', 'SPELLS', await spells());
 console.log('ok');

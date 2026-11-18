@@ -296,12 +296,35 @@
         <p class="hint" data-show-if="spellcasting.isPact">Magia del Patto: gli slot si recuperano con un riposo breve.</p>
         <div class="slots" data-list="spell-slots"></div>
 
-        <div class="grid grid--2">
-          <label class="field"><span class="field__label">Trucchetti</span>
-            <textarea data-bind="spells.cantrips" rows="4" placeholder="Luce, Mano magica…"></textarea></label>
-          <label class="field"><span class="field__label">Incantesimi conosciuti / preparati</span>
-            <textarea data-bind="spells.prepared" rows="4" placeholder="1° — Dardo incantato, Scudo…"></textarea></label>
-        </div>
+        <section class="spellset" data-spellset="cantrips" data-show-if="spellcasting.showCantrips">
+          <div class="spellset__head">
+            <h3 class="subhead">Trucchetti scelti</h3>
+            <output class="spellset__count" data-spell-count="cantrips"></output>
+            <button type="button" class="btn" data-action="pick-spells" data-kind="cantrips">+ Scegli trucchetti</button>
+          </div>
+          <div class="spellset__list" data-list="spell-list-cantrips"></div>
+          <p class="hint spellset__empty" data-spell-empty="cantrips">Nessun trucchetto scelto: usa «Scegli trucchetti» per cercarli nell'elenco.</p>
+        </section>
+
+        <section class="spellset" data-spellset="spells">
+          <div class="spellset__head">
+            <h3 class="subhead" data-out="spellcasting.spellsTitle"></h3>
+            <output class="spellset__count" data-spell-count="spells"></output>
+            <button type="button" class="btn" data-action="pick-spells" data-kind="spells">+ Scegli incantesimi</button>
+          </div>
+          <div class="spellset__list" data-list="spell-list-spells"></div>
+          <p class="hint spellset__empty" data-spell-empty="spells">Nessun incantesimo scelto: usa «Scegli incantesimi» per cercarli nell'elenco.</p>
+        </section>
+
+        <details class="spellnotes" data-ref="spell-notes">
+          <summary>Altri incantesimi, a mano <small class="muted">(per ciò che non è in elenco)</small></summary>
+          <div class="grid grid--2">
+            <label class="field"><span class="field__label">Altri trucchetti</span>
+              <textarea data-bind="spells.cantrips" rows="3" placeholder="Un trucchetto di un talento o di una regola della casa…"></textarea></label>
+            <label class="field"><span class="field__label">Altri incantesimi e note</span>
+              <textarea data-bind="spells.prepared" rows="3" placeholder="Incantesimi sempre preparati, del libro degli incantesimi, a scelta del DM…"></textarea></label>
+          </div>
+        </details>
       </div>
     </details>
 

@@ -46,6 +46,8 @@ export class CharacterView {
   #listKeys = new Map();
   /** Nodi delle scelte di classe già costruiti, per aggiornarli senza ricrearli. */
   #choiceNodes = null;
+  /** Selettore di incantesimi aperto (popup): `sync(spellcasting)` ne aggiorna spunte e contatore. */
+  #spellPicker = null;
 
   /** @param {Document | HTMLElement} root */
   constructor(root = document) {
@@ -188,6 +190,8 @@ export class CharacterView {
     this.#renderClassSkills(derived.classInfo.skillSlots);
     this.#renderClassChoices(derived.classChoices);
     this.#renderAcItems(state.equipment.acItems);
+    this.#renderSpellSets(state, derived.spellcasting);
+    this.#spellPicker?.sync(derived.spellcasting);
 
     // 2. Valori: input, output, pallini, visibilità
     this.#qa('[data-bind]').forEach((input) => this.#syncInput(input));
@@ -622,6 +626,231 @@ export class CharacterView {
         title: x.why, dataset: { action: 'toggle-choice', choiceKey: g.key, choiceValue: x.value },
       }, `${x.label} (${x.why}) ✕`)),
     ] : []));
+  }
+
+  // ===================================================================
+  // Incantesimi e trucchetti
+  // ===================================================================
+
+  /** Testo del contatore ("3/4", "5/4 · 1 in più") e il suo stato. */
+  #spellCountText(info) {
+    const base = info.limit > 0 ? `${info.count}/${info.limit}` : String(info.count);
+    return info.over > 0 ? `${base} · ${pick(`${info.over} in più`, `${info.over} over`)}` : base;
+  }
+
+  /** Elenchi scelti nel pannello: raggruppati per livello, con rimozione e rimando al manuale. */
+  #renderSpellSets(state, sc) {
+    for (const kind of ['cantrips', 'spells']) {
+      const info = sc[kind];
+      const count = this.#q(`[data-spell-count="${kind}"]`);
+      if (count) {
+        count.textContent = this.#spellCountText(info);
+        count.dataset.status = info.status;
+        count.setAttribute('aria-label', info.limit > 0
+          ? pick(`${info.count} scelti su ${info.limit}`, `${info.count} chosen of ${info.limit}`)
+          : pick(`${info.count} scelti`, `${info.count} chosen`));
+      }
+      this.#q(`[data-spell-empty="${kind}"]`).hidden = info.count > 0;
+
+      const key = `${getLang()}|${info.selected.map((x) => x.id).join(',')}`;
+      if (!this.#shouldRebuild(`spell-list-${kind}`, key)) continue;
+      const groups = new Map();
+      for (const spell of info.selected) groups.set(spell.level, [...(groups.get(spell.level) ?? []), spell]);
+      this.#q(`[data-list="spell-list-${kind}"]`).replaceChildren(...[...groups].map(([level, list]) => el('section', { class: 'spellgroup' }, [
+        kind === 'spells' ? el('h4', { class: 'spellgroup__title', text: pick(`${list[0].levelLabel} livello`, `${list[0].levelLabel} level`) }) : null,
+        el('ul', { class: 'spelllist' }, list.map((spell) => this.#spellRow(kind, spell))),
+      ])));
+    }
+
+    // Se c'è già del testo nei campi a mano (salvataggi precedenti) il riquadro si apre da solo, una volta.
+    const notes = this.#q('[data-ref="spell-notes"]');
+    if (notes && notes.dataset.autoOpened !== '1' && (state.spells.cantrips || state.spells.prepared)) {
+      notes.open = true;
+      notes.dataset.autoOpened = '1';
+    }
+  }
+
+  #spellRow(kind, spell) {
+    return el('li', { class: 'spell' }, [
+      el('div', { class: 'spell__body' }, [
+        el('div', { class: 'spell__name' }, [
+          spell.name,
+          spell.altName && spell.altName !== spell.name ? el('small', { class: 'spell__alt', text: spell.altName }) : null,
+          ...spell.tags.map((tag) => el('span', { class: `spell__tag spell__tag--${tag.id}`, title: tag.title, text: tag.label })),
+        ]),
+        el('div', { class: 'spell__meta', text: `${spell.school} · ${spell.meta} · ${spell.sourceText}` }),
+      ]),
+      el('button', {
+        type: 'button', class: 'btn btn--ghost btn--icon', text: '✕',
+        'aria-label': `${pick('Rimuovi', 'Remove')} ${spell.name}`, title: pick('Rimuovi', 'Remove'),
+        dataset: { action: 'toggle-spell', kind, spellId: spell.id },
+      }),
+    ]);
+  }
+
+  /**
+   * Popup per scegliere trucchetti o incantesimi: ricerca, filtri e un tocco per aggiungere o togliere.
+   * Le modifiche si applicano subito (come ovunque nella scheda): non c'è un "Salva".
+   * Su telefono occupa tutto lo schermo, con la barra dei filtri e il tasto «Fatto» sempre raggiungibili.
+   *
+   * @param {'cantrips' | 'spells'} kind
+   * @param {Array<object>} options vedi model/spellPicker.js
+   * @param {object} sc derived.spellcasting al momento dell'apertura
+   */
+  openSpellPicker(kind, options, sc) {
+    if (this.#spellPicker) return;
+    const isCantrips = kind === 'cantrips';
+    const maxLevel = sc.maxLevel;
+    const norm = (text) => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const filters = { query: '', level: null, conc: false, ritual: false, chosen: false, others: false };
+
+    const dialog = el('dialog', { class: 'dialog dialog--spells', 'aria-labelledby': 'spellpick-title' });
+    const title = isCantrips
+      ? pick('Scegli i trucchetti', 'Choose cantrips')
+      : pick('Scegli gli incantesimi', 'Choose spells');
+    const count = el('output', { class: 'spellset__count', 'aria-live': 'polite' });
+    const close = el('button', { type: 'button', class: 'btn btn--ghost btn--icon', 'aria-label': pick('Chiudi', 'Close'), text: '✕' });
+    close.addEventListener('click', () => dialog.close());
+
+    const search = el('input', {
+      type: 'search', class: 'spellpick__search', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'search',
+      placeholder: pick('Cerca per nome (italiano o inglese)…', 'Search by name (Italian or English)…'),
+      'aria-label': pick('Cerca un incantesimo', 'Search for a spell'),
+    });
+    search.addEventListener('input', () => { filters.query = norm(search.value.trim()); apply(); });
+
+    // Chip dei livelli (solo incantesimi): "Tutti" mostra quelli che puoi lanciare, "Oltre" gli altri.
+    const levelChips = [];
+    const levelGroup = el('div', { class: 'chips', role: 'group', 'aria-label': pick('Filtra per livello', 'Filter by level') });
+    if (!isCantrips) {
+      const levels = [
+        [null, pick('Tutti', 'All')],
+        ...Array.from({ length: maxLevel }, (_, i) => [i + 1, pick(`${i + 1}°`, `${i + 1}`)]),
+        ...(maxLevel < 9 ? [['above', pick('Oltre', 'Higher')]] : []),
+      ];
+      for (const [value, label] of levels) {
+        const chip = el('button', {
+          type: 'button', class: 'chip', text: label, 'aria-pressed': String(value === null),
+          title: value === 'above' ? pick('Incantesimi di livello superiore ai tuoi slot', 'Spells above your highest slot level') : null,
+        });
+        chip.addEventListener('click', () => {
+          filters.level = value;
+          levelChips.forEach(([c, v]) => c.setAttribute('aria-pressed', String(v === value)));
+          apply();
+        });
+        levelChips.push([chip, value]);
+        levelGroup.append(chip);
+      }
+    }
+
+    const toggle = (label, key, titleText) => {
+      const chip = el('button', { type: 'button', class: 'chip chip--toggle', text: label, title: titleText, 'aria-pressed': 'false' });
+      chip.addEventListener('click', () => {
+        filters[key] = !filters[key];
+        chip.setAttribute('aria-pressed', String(filters[key]));
+        apply();
+      });
+      return chip;
+    };
+    const toggles = el('div', { class: 'chips', role: 'group', 'aria-label': pick('Altri filtri', 'More filters') }, [
+      toggle(pick('Scelti', 'Chosen'), 'chosen', pick('Mostra solo quelli già scelti', 'Show only the ones already chosen')),
+      ...(isCantrips ? [] : [toggle(pick('Rituali', 'Rituals'), 'ritual', pick('Solo rituali', 'Rituals only'))]),
+      toggle(pick('Concentrazione', 'Concentration'), 'conc', pick('Solo incantesimi a concentrazione', 'Concentration spells only')),
+      toggle(pick('Altre classi', 'Other classes'), 'others', pick(`Mostra anche quelli fuori dalla lista: ${sc.listClassName}`, `Also show spells outside the ${sc.listClassName} list`)),
+    ]);
+
+    const rows = options.map((o) => {
+      const button = el('button', {
+        type: 'button', class: `spellrow${o.own ? '' : ' spellrow--other'}`, 'aria-pressed': 'false',
+        dataset: { action: 'toggle-spell', kind, spellId: o.id },
+      }, [
+        el('span', { class: 'spellrow__box', 'aria-hidden': 'true' }),
+        el('span', { class: 'spellrow__text' }, [
+          el('span', { class: 'spellrow__name' }, [
+            o.name,
+            o.altName && o.altName !== o.name ? el('small', { class: 'spell__alt', text: o.altName }) : null,
+            ...o.tags.map((tag) => el('span', { class: `spell__tag spell__tag--${tag.id}`, title: tag.title, text: tag.label })),
+            o.own ? null : el('span', { class: 'spell__tag spell__tag--other', text: pick('Altra classe', 'Other class') }),
+          ]),
+          el('span', { class: 'spell__meta', text: `${o.school} · ${o.meta} · ${o.sourceText}` }),
+        ]),
+        isCantrips ? null : el('span', { class: 'spellrow__level', text: o.levelLabel }),
+      ]);
+      const item = el('li', {}, [button]);
+      return { o, item, button, search: norm(`${o.name} ${o.altName}`) };
+    });
+    const list = el('ul', { class: 'spellpick__list' }, rows.map((r) => r.item));
+    const empty = el('p', { class: 'spellpick__empty', hidden: true, role: 'status' });
+    const result = el('span', { class: 'spellpick__result', 'aria-live': 'polite' });
+
+    const apply = () => {
+      let shown = 0;
+      for (const { o, item, button, search: text } of rows) {
+        const chosen = button.getAttribute('aria-pressed') === 'true';
+        let visible = (!filters.query || text.includes(filters.query)) && (!filters.conc || o.tags.some((t) => t.id === 'conc'))
+          && (!filters.ritual || o.tags.some((t) => t.id === 'ritual')) && (!filters.chosen || chosen);
+        // Livello: "Tutti" mostra ciò che hai gli slot per lanciare (e sempre ciò che hai già scelto).
+        if (visible && !isCantrips) {
+          if (typeof filters.level === 'number') visible = o.level === filters.level;
+          else if (filters.level === 'above') visible = o.level > maxLevel;
+          else visible = chosen || o.level <= maxLevel;
+        }
+        // Lista: di norma solo quella della classe; "Altre classi" allarga (le scelte già fatte restano sempre visibili).
+        if (visible && !chosen && !o.own && !filters.others) visible = false;
+        item.hidden = !visible;
+        if (visible) shown += 1;
+      }
+      result.textContent = pick(`${shown} ${shown === 1 ? 'risultato' : 'risultati'}`, `${shown} ${shown === 1 ? 'result' : 'results'}`);
+      empty.hidden = shown > 0;
+      if (!shown) {
+        empty.textContent = filters.chosen
+          ? pick('Non hai ancora scelto nulla.', 'You have not chosen anything yet.')
+          : pick('Nessun risultato. Prova a togliere un filtro o attiva «Altre classi».', 'No results. Try removing a filter or turn on “Other classes”.');
+      }
+    };
+
+    const sync = (spellcasting) => {
+      const info = spellcasting[kind];
+      const ids = new Set(info.selected.map((x) => x.id));
+      for (const { o, button } of rows) {
+        const on = ids.has(o.id);
+        if (button.getAttribute('aria-pressed') !== String(on)) button.setAttribute('aria-pressed', String(on));
+      }
+      count.textContent = this.#spellCountText(info);
+      count.dataset.status = info.status;
+    };
+
+    dialog.append(
+      el('div', { class: 'spellpick' }, [
+        el('div', { class: 'spellpick__head' }, [
+          el('h2', { id: 'spellpick-title', text: title }),
+          count, close,
+        ]),
+        el('p', { class: 'dialog__hint spellpick__hint', text: [
+          `${pick('Lista', 'List')}: ${sc.listClassName}`,
+          sc.listFromSubclass ? pick('(Cavaliere Mistico: soprattutto Abiurazione ed Evocazione · Mistificatore Arcano: Ammaliamento e Illusione)', '(Eldritch Knight: mostly Abjuration and Evocation · Arcane Trickster: Enchantment and Illusion)') : '',
+          sc[kind].limit > 0 ? `· ${isCantrips ? pick('Trucchetti conosciuti', 'Cantrips known') : sc.spellsTitle}: ${sc[kind].limit}` : '',
+        ].filter(Boolean).join(' ') }),
+        el('div', { class: 'spellpick__tools' }, [search, levelGroup.childElementCount ? levelGroup : null, toggles]),
+        el('div', { class: 'spellpick__scroll' }, [list, empty]),
+        el('div', { class: 'spellpick__foot' }, [
+          result,
+          el('span', { class: 'spellpick__tip', text: pick('Ne manca qualcuno? Attiva altri manuali in «Manuali».', 'Missing one? Turn on more sourcebooks in “Sourcebooks”.') }),
+          (() => { const done = el('button', { type: 'button', class: 'btn btn--teal', text: pick('Fatto', 'Done') }); done.addEventListener('click', () => dialog.close()); return done; })(),
+        ]),
+      ]),
+    );
+    // Un clic sullo sfondo (fuori dal riquadro) chiude, come ci si aspetta da un popup.
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+    dialog.addEventListener('close', () => { dialog.remove(); this.#spellPicker = null; });
+
+    this.#spellPicker = { sync };
+    document.body.append(dialog);
+    sync(sc);
+    apply();
+    dialog.showModal();
+    // Su telefono, mettere subito il focus sulla ricerca aprirebbe la tastiera e coprirebbe l'elenco.
+    if (!globalThis.matchMedia?.('(pointer: coarse)').matches) search.focus();
   }
 
   /** Oggetti che modificano la CA: nome e bonus, con rimozione. */
