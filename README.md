@@ -10,7 +10,7 @@ Scheda personaggio interattiva per **Dungeons & Dragons 5ª Edizione**, scritta 
 
 | Sezione | Cosa fa |
 |---|---|
-| **1. Informazioni & Classe** | Nome, giocatore, razza, background, allineamento, 12 classi, livello 1-20, bonus di competenza e dado vita automatici |
+| **1. Informazioni & Classe** | Nome, giocatore, razza, background, allineamento, 12 classi, livello 1-20, bonus di competenza e dado vita automatici, e le **scelte di classe** del PHB (sottoclasse, stile di combattimento, Maestria, Metamagia, Suppliche Occulte, Manovre, Discipline…): vedi sotto |
 | **2. Combattimento** | CA con scomposizione, iniziativa, velocità, PF max/attuali/temporanei, PF suggeriti, danno/cura (i danni consumano prima i PF temporanei), TS contro morte, riposo lungo |
 | **3. Caratteristiche** | Modificatore `floor((punteggio − 10) / 2)` istantaneo, TS con competenze impostate dalla classe |
 | **4. Abilità** | Le 18 abilità ufficiali con competenza, Maestria e Factotum del Bardo; Percezione passiva |
@@ -33,10 +33,12 @@ js/
 ├── data/                       ← regole statiche di D&D 5E (solo dati)
 │   ├── abilities.js  skills.js  armors.js  classes.js
 │   ├── classFeatures.js  classResources.js  spellSlots.js
+│   └── classChoices/           ← scelte di classe: un file per classe + index.js
 ├── model/                      ← MODEL: stato e regole, nessun accesso al DOM
 │   ├── CharacterModel.js       ← unica fonte di verità, emette 'change'
 │   ├── characterSchema.js      ← stato di default + validazione di ogni valore
 │   ├── calculations.js         ← formule pure (CA, competenza, slot, PF…)
+│   ├── classChoices.js         ← scelte di classe: validazione, azzeramenti, effetti, privilegi
 │   ├── deriveStats.js          ← stato → tutti i valori calcolati
 │   └── LocalStorageRepository.js ← persistenza
 ├── view/                       ← VIEW: solo DOM, nessuna regola di gioco
@@ -74,6 +76,57 @@ tests/                          ← test con il runner integrato di Node
 
 Ogni dato in ingresso, da un input, da `localStorage` o da un file importato, passa da `sanitizeValue()`. Così lo stato resta valido anche con salvataggi vecchi o manomessi.
 
+## Scelte di classe
+
+Tutte le scelte di classe del Manuale del Giocatore 2014 (solo PHB), dal 1° al 20° livello, nel pannello *Informazioni & Classe*: sottoclasse (Patrono, Dominio, Cammino, Collegio, Circolo, Archetipo, Tradizione, Giuramento, Scuola), Stile di Combattimento (anche l'extra del Campione), Maestria, Metamagia, Suppliche Occulte, Dono del Patto, Arcanum Mistico, Manovre, Discipline Elementali, Nemico Prescelto ed Esploratore Nato, spirito totemico, scelte del Cacciatore, terreno del Circolo della Terra, ascendenza draconica. Vedi solo ciò che la classe ha **al livello attuale**. Nel pannello *Privilegi* i privilegi generici ("Privilegio del Cammino") sono sostituiti da quelli dell'opzione scelta, con un'etichetta ("Patrono Ultraterreno: Immondo").
+
+### Cosa si calcola e cosa resta descrittivo
+
+| Calcolato | Dove |
+|---|---|
+| Stile Difesa: +1 CA con armatura, nella scomposizione della CA | `calculations.js` |
+| Resilienza Draconica: CA 13 + DES senza armatura (scudo consentito) e +1 PF suggeriti per livello | `calculations.js` |
+| Maestria (Ladro, Bardo) solo su abilità competenti e entro la quota; competenza e Maestria da Dominio della Conoscenza, competenze del Collegio della Sapienza e Accolito della Natura | `classChoices.js`, `deriveStats.js` |
+| Cavaliere Mistico e Mistificatore Arcano: incantatori "a un terzo" dal 3° (INT, slot, CD, bonus) | `spellSlots.js`, `deriveStats.js` |
+| Maestro di Battaglia: dadi di superiorità e CD delle manovre | `classResources.js` |
+| Circolo della Luna: GS massimo della Forma Selvatica | `classResources.js` |
+
+Resta **descrittivo** ciò che dipende dall'arma impugnata o dalla situazione (Tiro, Duellare, Armi Possenti, Protezione, Combattere con Due Armi, critici del Campione…), gli incantesimi (di dominio, di patrono, Arcanum Mistico: qui solo una nota di testo) e le competenze con armature e strumenti.
+
+### Regole di comportamento
+
+- **Cambio classe**: tutte le scelte si azzerano.
+- **Cambio sottoclasse**: si azzerano le scelte che ne dipendono (`when`).
+- **Calo di livello o prerequisito perso** (Patto, livello, competenza): non si cancella nulla. Una scelta sotto il suo livello si nasconde; gli elementi di una lista oltre la quantità consentita, o con prerequisito non soddisfatto, restano memorizzati ma non contano e la scheda li segnala con un pulsante per toglierli.
+- **Salvataggi e JSON vecchi** si caricano senza errori: le chiavi mancanti prendono il valore di default. `SCHEMA_VERSION` non cambia, perché i campi sono solo aggiunti.
+- **Collaborazione**: nessuna modifica al backend. I campi singoli si fondono come gli altri; le liste (Invocazioni, Manovre…) si sostituiscono intere, quindi due persone che modificano la *stessa* lista insieme si sovrascrivono (vince l'ultima).
+
+### Formato dei dati e come aggiungere una scelta
+
+Un file per classe in `js/data/classChoices/` (più `index.js`, che documenta tutti i campi). Una scelta è un oggetto:
+
+```js
+{ key: 'metamagic', type: 'multi', minLevel: 3, count: [[3, 2], [10, 3], [17, 4]],
+  label: 'Metamagia', labelEn: 'Metamagic',
+  options: [{ value: 'twinned', label: 'Incantesimo Gemello', labelEn: 'Twinned Spell',
+              description: '…', descriptionEn: '…' }] }
+```
+
+| `type` | Significato | Stato (`info.classChoices[key]`) |
+|---|---|---|
+| `single` | un'opzione da una lista (sottoclasse, stile…) | stringa |
+| `multi` | N opzioni distinte, con N che dipende dal livello (`count`) | elenco |
+| `skills` | N abilità: `mode: 'expertise'` (solo competenti), `'proficiency'` o `'both'` | elenco |
+| `text` | testo breve (Arcanum Mistico) | stringa, max 60 caratteri |
+
+Campi utili: `when: { key, in: [...] }` (la scelta esiste solo per certi valori di un'altra), `prereq: { level, choice: { key, value } }` sull'opzione, `differsFrom` (deve differire da un'altra scelta), `featureName` (riga di privilegi a cui aggiungere la scelta), `effects` sull'opzione (`acWithArmor`, `hpPerLevel`, `unarmoredDefense`, `spellcasting`) e `features: [livello, nome, descrizione, nameEn, descriptionEn]` per i privilegi della sottoclasse. Italiano e inglese sono obbligatori: `tests/i18n.test.js` fallisce se manca una traduzione. Le chiavi dello stato sono uniche tra le classi e i valori delle sottoclassi pure (lo verifica `tests/classChoices.test.js`); il default si genera dalle definizioni, quindi non serve toccare lo schema.
+
+Fonte dei contenuti: 5e.tools (PHB 2014), con descrizioni sintetiche e non copiate. 5e.tools non ha l'italiano: i termini italiani sono quelli già nel progetto o una resa provvisoria; l'elenco di quelli da verificare sul PHB italiano è nei commenti in testa a ciascun file di dati.
+
+### Prestazioni e accessibilità
+
+Le scelte pesano circa 100 KB (31 KB compressi) e sono moduli statici: `deriveStats()` è sincrona e a ogni render si elabora solo la classe attiva (calcolo dei derivati sotto 1 ms, un click su una casella dipinto in circa 30 ms con la lista più lunga). Le liste multiple sono `fieldset` con `legend`, caselle native, contatore in `aria-live`, note collegate con `aria-describedby`, ricerca oltre 12 opzioni e righe alte almeno 44 px; funzionano da tastiera. Provato a 390 px.
+
 ## Avvio in locale
 
 L'app usa i **moduli ES** (`<script type="module">`), che i browser non caricano da `file://`. Serve quindi un piccolo server statico. Va bene uno qualsiasi di questi:
@@ -92,7 +145,7 @@ In alternativa, in VS Code puoi usare l'estensione **Live Server** con "Open wit
 
 ## Test
 
-Le regole del Model sono funzioni pure e si testano senza browser né dipendenze (Node ≥ 18):
+Le regole del Model sono funzioni pure e si testano senza browser né dipendenze (Node ≥ 18). Le scelte di classe hanno test su dati, validazione, azzeramenti, effetti calcolati, sincronizzazione e traduzioni (`tests/classChoices*.test.js`, `tests/i18n.test.js`):
 
 ```bash
 npm test

@@ -20,6 +20,11 @@ export function byLevel(level, table) {
   return value;
 }
 
+/** GS massimo della Forma Selvatica; Circolo della Luna: 1 fino al 5°, poi livello ÷ 3 (per difetto). */
+const wildShapeMaxCr = (lvl, subclass) => (subclass === 'moon'
+  ? String(lvl < 6 ? 1 : Math.floor(lvl / 3))
+  : byLevel(lvl, [[2, '1/4'], [4, '1/2'], [8, '1']]));
+
 const metres = (n) => `${pick(String(n).replace('.', ','), String(n))} m`;
 
 const RESOURCE_BUILDERS = {
@@ -38,14 +43,19 @@ const RESOURCE_BUILDERS = {
     lvl >= 2 && { label: pick('Incanalare Divinità', 'Channel Divinity'), value: `${byLevel(lvl, [[2, 1], [6, 2], [18, 3]])} ${pick('/ riposo', '/ rest')}` },
     lvl >= 5 && { label: pick('Distruggere Non Morti', 'Destroy Undead'), value: `${pick('GS', 'CR')} ${byLevel(lvl, [[5, '1/2'], [8, '1'], [11, '2'], [14, '3'], [17, '4']])}` },
   ],
-  druid: (lvl) => [
+  druid: (lvl, mods, ctx) => [
     lvl >= 2 && {
       label: pick('Forma Selvatica', 'Wild Shape'),
-      value: lvl >= 20 ? pick('Illimitata', 'Unlimited') : `${pick('2 / riposo · GS max', '2 / rest · max CR')} ${byLevel(lvl, [[2, '1/4'], [4, '1/2'], [8, '1']])}`,
+      value: lvl >= 20 ? pick('Illimitata', 'Unlimited') : `${pick('2 / riposo · GS max', '2 / rest · max CR')} ${wildShapeMaxCr(lvl, ctx.subclass)}`,
     },
   ],
-  fighter: (lvl) => [
+  fighter: (lvl, mods, ctx) => [
     { label: pick('Recuperare Energie', 'Second Wind'), value: `1d10 + ${lvl}` },
+    // Maestro di Battaglia: dadi di superiorità (4/5/6 a 3°/7°/15°; d8, d10 dal 10°, d12 dal 18°) e CD delle manovre.
+    ...(ctx.subclass === 'battleMaster' && lvl >= 3 ? [
+      { label: pick('Dadi di superiorità', 'Superiority dice'), value: `${byLevel(lvl, [[3, 4], [7, 5], [15, 6]])} × ${byLevel(lvl, [[3, 'd8'], [10, 'd10'], [18, 'd12']])}` },
+      { label: pick('CD delle manovre', 'Maneuver save DC'), value: String(8 + ctx.profBonus + Math.max(mods.str, mods.dex)) },
+    ] : []),
     lvl >= 2 && { label: pick('Azione Impetuosa', 'Action Surge'), value: `${lvl >= 17 ? 2 : 1} ${pick('/ riposo', '/ rest')}` },
     lvl >= 5 && { label: pick('Attacchi per azione', 'Attacks per action'), value: String(byLevel(lvl, [[5, 2], [11, 3], [20, 4]])) },
     lvl >= 9 && { label: pick('Indomito', 'Indomitable'), value: `${byLevel(lvl, [[9, 1], [13, 2], [17, 3]])} ${pick('/ riposo lungo', '/ long rest')}` },
@@ -72,9 +82,10 @@ const RESOURCE_BUILDERS = {
  * @param {string} classId
  * @param {number} level
  * @param {Record<string, number>} mods modificatori di caratteristica
+ * @param {{ subclass?: string, profBonus?: number }} [ctx] sottoclasse scelta e bonus di competenza
  * @returns {Array<{label: string, value: string}>}
  */
-export function getClassResources(classId, level, mods) {
+export function getClassResources(classId, level, mods, ctx = {}) {
   const builder = RESOURCE_BUILDERS[classId];
-  return builder ? builder(level, mods).filter(Boolean) : [];
+  return builder ? builder(level, mods, ctx).filter(Boolean) : [];
 }

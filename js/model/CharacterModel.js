@@ -13,6 +13,8 @@ import {
 } from './characterSchema.js';
 import { deriveStats } from './deriveStats.js';
 import { feetToMeters, getRace } from '../data/races.js';
+import { defaultChoiceValues, getChoiceDefs, isListType } from '../data/classChoices/index.js';
+import { allowedValues, dependentKeys, validateChoiceValue } from './classChoices.js';
 
 export class CharacterModel extends EventEmitter {
   /** @type {ReturnType<typeof createDefaultCharacter>} */
@@ -54,6 +56,7 @@ export class CharacterModel extends EventEmitter {
    * @returns {boolean} true se lo stato è cambiato
    */
   set(path, rawValue) {
+    if (path.startsWith('info.classChoices.')) return this.#setClassChoice(path.slice('info.classChoices.'.length), rawValue);
     const current = getByPath(this.#state, path);
     if (current === undefined || (typeof current === 'object' && current !== null)) {
       console.warn(`[CharacterModel] percorso non valido: ${path}`);
@@ -69,6 +72,8 @@ export class CharacterModel extends EventEmitter {
       this.#state.saveProficiencies = classSaveProficiencies(value);
       // Le scelte di abilità dipendono dalla classe: si ripartono da vuote.
       this.#state.classSkills = createDefaultCharacter().classSkills;
+      // Le scelte di classe dipendono dalla classe: tutte da capo.
+      this.#state.info.classChoices = defaultChoiceValues();
     }
     // Regola di dominio: cambiando razza si impostano velocità e abilità fisse.
     if (path === 'info.raceId') {
@@ -78,6 +83,30 @@ export class CharacterModel extends EventEmitter {
     }
 
     this.#emitChange(path);
+    return true;
+  }
+
+  /**
+   * Aggiunge o toglie un valore da una scelta multipla o di abilità.
+   * Si aggiunge solo ciò che è ammesso ora (quantità, prerequisiti, competenza); si toglie sempre.
+   * @param {string} key
+   * @param {string} value
+   * @returns {boolean} true se lo stato è cambiato
+   */
+  toggleChoice(key, value) {
+    const { classId } = this.#state.info;
+    const def = getChoiceDefs(classId).find((d) => d.key === key);
+    if (!def || !isListType(def.type) || typeof value !== 'string' || !allowedValues(def).has(value)) return false;
+    const list = this.#state.info.classChoices[key];
+    if (list.includes(value)) {
+      this.#state.info.classChoices[key] = list.filter((v) => v !== value);
+    } else {
+      const group = this.getDerived().classChoices.find((g) => g.key === key);
+      const option = group?.options.find((o) => o.value === value);
+      if (!group || !option || option.disabled) return false;
+      this.#state.info.classChoices[key] = [...list, value];
+    }
+    this.#emitChange(`info.classChoices.${key}`);
     return true;
   }
 
@@ -159,6 +188,30 @@ export class CharacterModel extends EventEmitter {
   }
 
   // --------------------------------------------------------------- Interni
+
+  /** Scelta singola o di testo di classe: valida per la classe attuale; azzera ciò che ne dipende. */
+  #setClassChoice(key, rawValue) {
+    const { classId } = this.#state.info;
+    const value = validateChoiceValue(classId, key, rawValue);
+    const choices = this.#state.info.classChoices;
+    if (value === undefined || Object.is(value, choices[key])) return false;
+    const defs = getChoiceDefs(classId);
+    const own = defs.find((d) => d.key === key);
+    if (value && own?.differsFrom && value === choices[own.differsFrom]) return false; // deve differire dall'altra scelta
+    choices[key] = value;
+    // Chi deve differire da questa scelta e ora è uguale si azzera (es. secondo stile uguale al primo).
+    for (const d of defs) if (d.differsFrom === key && value && choices[d.key] === value) choices[d.key] = '';
+    const reset = (parent) => {
+      for (const child of dependentKeys(classId, parent)) {
+        const def = getChoiceDefs(classId).find((d) => d.key === child);
+        choices[child] = isListType(def.type) ? [] : '';
+        reset(child);
+      }
+    };
+    reset(key);
+    this.#emitChange(`info.classChoices.${key}`);
+    return true;
+  }
 
   /**
    * Applica i valori automatici della razza: velocità e abilità con competenza fissa.
