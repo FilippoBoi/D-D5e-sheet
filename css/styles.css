@@ -28,6 +28,7 @@
   --border: #35294D;
   --border-strong: #54447A;
   --bar-bg: rgba(18, 15, 28, 0.92);
+  --hp-high: #6FCFA3; --hp-mid: #E8C97A; --hp-low: #FF8FA0;
   --page-glow: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(120, 80, 200, 0.22), transparent 70%);
 
   --text: #EFE6D2;
@@ -66,6 +67,7 @@
     --border: #D2BD8E;
     --border-strong: #AD935A;
     --bar-bg: rgba(233, 220, 188, 0.94);
+  --hp-high: #1F5A40; --hp-mid: #6F4E0C; --hp-low: #8E2433;
     --page-glow: radial-gradient(ellipse 90% 55% at 50% -10%, rgba(255, 250, 230, 0.8), transparent 70%);
 
     --text: #2B1F12;
@@ -95,6 +97,7 @@
   --border: #D2BD8E;
   --border-strong: #AD935A;
   --bar-bg: rgba(233, 220, 188, 0.94);
+  --hp-high: #1F5A40; --hp-mid: #6F4E0C; --hp-low: #8E2433;
   --page-glow: radial-gradient(ellipse 90% 55% at 50% -10%, rgba(255, 250, 230, 0.8), transparent 70%);
 
   --text: #2B1F12;
@@ -261,7 +264,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 0.3rem 0.6rem;
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
 }
-.quickbar__item span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.quickbar__item span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 .quickbar__item output { font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .quickbar__item--accent { border-color: var(--vermilion); }
 .quickbar__item--accent output { color: var(--vermilion-strong); }
@@ -333,7 +336,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ---------- Campi ---------- */
 .field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
 .field__label {
-  font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--text-muted);
 }
 .field input:not([type="checkbox"]), .field select, .field textarea {
@@ -351,7 +354,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .ability input { font-size: 16px; }
 }
 .field input:focus, .field select:focus, .field textarea:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: 2px solid var(--accent-strong); outline-offset: 1px; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .field input::placeholder, .field textarea::placeholder { color: var(--placeholder); }
 .field--inline { flex-direction: row; align-items: center; gap: 0.5rem; }
@@ -377,7 +380,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .stat__value { font-size: 1.5rem; font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; }
 .stat__value--xl { font-size: 2.1rem; }
 .stat__value--sm { font-size: 1rem; }
-.stat__hint { font-size: 0.72rem; color: var(--text-muted); }
+.stat__hint { font-size: 0.75rem; color: var(--text-muted); }
 .stat--shield { border-color: var(--vermilion); background: linear-gradient(180deg, var(--vermilion-soft), transparent 70%), var(--card-raised); }
 .stat--shield .stat__value { color: var(--text); }
 .stat--compact { padding: 0.35rem 0.6rem; }
@@ -449,10 +452,16 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 
 /* ---------- Punti ferita ---------- */
 .hp { display: grid; gap: var(--gap); }
-.hp__bar { height: 8px; background: var(--input); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
-.hp__fill { height: 100%; width: 100%; background: var(--emerald); transition: width 0.3s ease, background 0.3s; }
-.hp__fill[data-level="mid"] { background: var(--gold); }
-.hp__fill[data-level="low"] { background: var(--vermilion); }
+.hp__bar { height: 12px; background: var(--input); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+/* Barra PF: il livello non dipende solo dal colore (utile per daltonismo): pieno = tinta unita,
+   medio = strisce sottili, basso = strisce larghe. Colori scelti con stacco di luminosità dalla pista. */
+.hp__fill { height: 100%; width: 100%; background: var(--hp-high); transition: width 0.3s ease, background 0.3s; }
+.hp__fill[data-level="mid"] {
+  background: repeating-linear-gradient(45deg, var(--hp-mid) 0 7px, transparent 7px 10px);
+}
+.hp__fill[data-level="low"] {
+  background: repeating-linear-gradient(45deg, var(--hp-low) 0 5px, transparent 5px 10px);
+}
 .hp__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 
 /* ---------- Pips (TS contro morte, slot) ---------- */
@@ -479,7 +488,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   background: var(--card-raised); border: 1px solid var(--border); border-top: 2px solid var(--vermilion);
   border-radius: var(--radius-sm);
 }
-.ability__name { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.ability__name { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 .ability__mod {
   font-size: 1.9rem; font-weight: 800; line-height: 1; color: var(--accent-strong);
   font-variant-numeric: tabular-nums;
@@ -489,7 +498,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   background: var(--input); border: 1px solid var(--border-strong); border-radius: 99px;
   font-weight: 600;
 }
-.ability input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ability input:focus { outline: 2px solid var(--accent-strong); outline-offset: 1px; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 /* ---------- Liste con spunta (TS, abilità) ---------- */
 .checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem 1.5rem; }
@@ -501,11 +510,11 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .checklist__row:hover { background: var(--card-raised); }
 .checklist__row--save { grid-template-columns: auto 1fr auto; }
 .checklist__name { min-width: 0; }
-.checklist__name small { color: var(--text-muted); margin-left: 0.3rem; font-size: 0.72rem; }
+.checklist__name small { color: var(--text-muted); margin-left: 0.3rem; font-size: 0.75rem; }
 .checklist__value { font-weight: 700; color: var(--accent-strong); font-variant-numeric: tabular-nums; min-width: 2.2rem; text-align: right; }
 .checklist__legend {
   display: grid; grid-template-columns: auto auto 1fr auto; gap: 0.6rem; padding: 0 0.5rem;
-  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);
 }
 .expertise { accent-color: var(--vermilion); }
 
@@ -557,7 +566,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .usable { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.55rem 0.7rem; background: var(--card-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .usable__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.2rem 0.5rem; }
 .usable__name { font-weight: 600; }
-.usable__tag { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text-muted); }
+.usable__tag { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text-muted); }
 .usable__tag--short { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); }
 .usable__body { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .usable__count { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.85rem; }
@@ -571,7 +580,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   border-left: 2px solid var(--accent);
 }
 .feature__level {
-  font-size: 0.72rem; font-weight: 700; color: var(--vermilion-strong);
+  font-size: 0.75rem; font-weight: 700; color: var(--vermilion-strong);
   padding: 0.15rem 0.45rem; border: 1px solid var(--vermilion); border-radius: 99px; white-space: nowrap;
 }
 .feature__name { font-weight: 700; }
@@ -670,7 +679,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   background: var(--accent-soft); border-radius: 999px; white-space: nowrap;
 }
 .choice__group {
-  grid-column: 1 / -1; margin: 0.4rem 0 0; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  grid-column: 1 / -1; margin: 0.4rem 0 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--text-muted);
 }
 .choice__warn { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
