@@ -126,3 +126,13 @@ export function suggestedMaxHp(hitDie, level, conMod, bonusPerLevel = 0) {
   const perLevel = Math.max(1, hitDie / 2 + 1 + conMod);
   return first + perLevel * (lvl - 1) + bonusPerLevel * lvl;
 }
+
+/** PF guadagnati per livello con la media del dado vita: dado/2 + 1 + mod. COS (almeno 1). */
+export function averageHpGain(hitDie, conMod, bonusPerLevel = 0) {
+  return Math.max(1, hitDie / 2 + 1 + conMod) + bonusPerLevel;
+}
+
+/** PF guadagnati per livello con un tiro del dado vita (almeno 1, come da regolamento). */
+export function rolledHpGain(roll, conMod, bonusPerLevel = 0) {
+  return Math.max(1, roll + conMod) + bonusPerLevel;
+}

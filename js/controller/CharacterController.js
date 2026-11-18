@@ -12,6 +12,8 @@ import { detectLang, isSupportedLang, pick, setLang } from '../i18n/i18n.js';
 import { deepMerge } from '../sync/diff.js';
 
 const SAVE_DELAY_MS = 400;
+/** Attesa dopo l'ultima modifica del livello prima di proporre i PF (si può digitare "15" passando da "1"). */
+const LEVEL_PROMPT_DELAY_MS = 900;
 
 export class CharacterController {
   #model;
@@ -19,6 +21,9 @@ export class CharacterController {
   #repository;
   #catalogs;
   #saveTimer = null;
+  #levelTimer = null;
+  /** Livello "assestato": ciò che è già stato gestito; i PF si propongono solo se si sale oltre. */
+  #levelBaseline = 1;
   /** Sincronizzazione con la scheda condivisa; null = si lavora sulla scheda locale. */
   #remote = null;
   #languageListeners = [];
@@ -46,12 +51,18 @@ export class CharacterController {
     this.#view.applyLanguage();
     this.#view.setPanelsState(this.#repository.loadUiState());
 
-    this.#view.onFieldChange((path, value) => this.#model.set(path, value));
+    this.#levelBaseline = this.#model.get('info.level');
+    this.#view.onFieldChange((path, value) => {
+      this.#model.set(path, value);
+      if (path === 'info.level') this.#scheduleLevelUp();
+    });
     this.#view.onAction((action, data) => this.#handleAction(action, data));
     this.#view.onImport((text) => this.#importJson(text));
     this.#view.onPanelToggle((state) => this.#repository.saveUiState(state));
 
     this.#model.on('change', ({ path }) => {
+      // Scheda sostituita (import, reset, sincronizzazione): il nuovo livello è il punto di partenza, niente proposta.
+      if (path === '*') this.#resetLevelBaseline();
       if (path === 'sources') this.#repository.saveSources([...this.#model.getSources()]);
       this.#render();
       this.#changeListeners.forEach((listener) => listener());
@@ -118,6 +129,32 @@ export class CharacterController {
     this.#model.load(this.#repository.load());
   }
 
+  #resetLevelBaseline() {
+    clearTimeout(this.#levelTimer);
+    this.#levelTimer = null;
+    this.#levelBaseline = this.#model.get('info.level');
+  }
+
+  #scheduleLevelUp() {
+    clearTimeout(this.#levelTimer);
+    this.#levelTimer = setTimeout(() => this.#offerLevelUp(), LEVEL_PROMPT_DELAY_MS);
+  }
+
+  /** Se il livello è salito, chiede se aggiungere ai PF la media del dado vita o un tiro. */
+  async #offerLevelUp() {
+    this.#levelTimer = null;
+    const to = this.#model.get('info.level');
+    const from = this.#levelBaseline;
+    this.#levelBaseline = to;
+    if (to <= from) return;
+    const levels = to - from;
+    const choice = await this.#view.promptLevelUp({ from, to, levels, hp: this.#model.getDerived().hp });
+    if (!choice) return;
+    const { gain, rolls } = this.#model.applyLevelUpHp(levels, choice);
+    const detail = rolls.length ? ` (${pick('tirato', 'rolled')} ${rolls.join(', ')})` : '';
+    this.#view.showStatus(pick(`+${gain} PF massimi${detail}`, `+${gain} max HP${detail}`));
+  }
+
   #render() {
     this.#view.render(this.#model.getSnapshot(), this.#model.getDerived());
   }
@@ -135,6 +172,10 @@ export class CharacterController {
       'damage': () => this.#model.applyDamage(this.#view.takeHpDelta()),
       'heal': () => this.#model.heal(this.#view.takeHpDelta()),
       'apply-suggested-hp': () => this.#model.applySuggestedHp(),
+      'short-rest': () => {
+        this.#model.shortRest();
+        this.#view.showStatus(pick('Riposo breve completato.', 'Short rest completed.'));
+      },
       'long-rest': () => {
         this.#model.longRest();
         this.#view.showStatus(pick('Riposo lungo completato.', 'Long rest completed.'));

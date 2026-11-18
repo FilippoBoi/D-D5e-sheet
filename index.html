@@ -95,6 +95,8 @@
             <div><dt>Lingue</dt><dd data-out="race.languages"></dd></div>
             <div><dt>Scurovisione</dt><dd data-out="race.darkvision"></dd></div>
             <div><dt>Tratti</dt><dd data-out="race.traits"></dd></div>
+            <div data-show-if="race.resistances"><dt>Resistenze</dt><dd data-out="race.resistances"></dd></div>
+            <div data-show-if="race.proficiencies"><dt>Competenze razziali</dt><dd data-out="race.proficiencies"></dd></div>
             <div><dt>Armature</dt><dd data-out="classInfo.armor"></dd></div>
             <div><dt>Armi</dt><dd data-out="classInfo.weapons"></dd></div>
             <div><dt>Strumenti</dt><dd data-out="classInfo.tools"></dd></div>
@@ -166,7 +168,8 @@
               <input type="number" min="1" max="999" inputmode="numeric" data-ref="hp-delta" placeholder="0"></label>
             <button type="button" class="btn btn--danger" data-action="damage">Danno</button>
             <button type="button" class="btn btn--teal" data-action="heal">Cura</button>
-            <button type="button" class="btn btn--ghost" data-action="long-rest">Riposo lungo</button>
+            <button type="button" class="btn btn--ghost" data-action="short-rest" title="Recupera le risorse che tornano con un riposo breve">Riposo breve</button>
+            <button type="button" class="btn btn--ghost" data-action="long-rest" title="Recupera PF, slot e tutte le risorse">Riposo lungo</button>
           </div>
         </div>
 
@@ -305,18 +308,43 @@
         <span class="panel__chevron" aria-hidden="true"></span>
       </summary>
       <div class="panel__body">
-        <div data-show-if="hasResources">
+        <div data-show-if="hasUsables">
+          <h3 class="subhead">Abilità a usi limitati</h3>
+          <p class="hint">Spunta gli usi spesi: tornano col riposo breve o lungo indicato.</p>
+          <div class="usables" data-list="usables"></div>
+        </div>
+        <div data-show-if="infoResources.length">
           <h3 class="subhead">Risorse di classe</h3>
           <div class="resources" data-list="resources"></div>
         </div>
         <h3 class="subhead" data-out="featuresTitle"></h3>
         <ol class="features" data-list="features"></ol>
+        <div data-show-if="hasRaceTraits">
+          <h3 class="subhead">Tratti razziali</h3>
+          <ol class="features" data-list="race-traits"></ol>
+        </div>
         <div class="grid grid--2">
-          <label class="field"><span class="field__label">Tratti razziali &amp; talenti</span>
-            <textarea data-bind="notes.traits" rows="4" placeholder="Scurovisione, Ascendenza fatata…"></textarea></label>
+          <label class="field"><span class="field__label">Talenti &amp; altri tratti</span>
+            <textarea data-bind="notes.traits" rows="4" placeholder="Talenti, tratti di mostruosità, doni…"></textarea></label>
           <label class="field"><span class="field__label">Storia &amp; personalità</span>
             <textarea data-bind="notes.backstory" rows="4"></textarea></label>
         </div>
+      </div>
+    </details>
+
+    <!-- 8. LINGUAGGI -->
+    <details class="panel" data-panel="languages">
+      <summary class="panel__header">
+        <span class="panel__index">8</span>
+        <h2>Linguaggi</h2>
+        <span class="panel__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="panel__body">
+        <p class="languages__known"><strong>Lingue conosciute:</strong> <span data-out="languageInfo.known"></span></p>
+        <p class="hint">Le lingue di razza, background e classe si aggiungono da sole. Scegli qui sotto quelle a scelta e scrivi le altre apprese durante il gioco.</p>
+        <div class="grid grid--3" data-list="language-slots" data-show-if="languageInfo.hasSlots"></div>
+        <label class="field"><span class="field__label">Altre lingue (separate da virgola)</span>
+          <input type="text" data-bind="languages.other" autocomplete="off" maxlength="200" placeholder="Es. Linguaggio dei segni, Cant dei ladri…"></label>
       </div>
     </details>
   </main>

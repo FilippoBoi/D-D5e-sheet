@@ -14,12 +14,14 @@ import { feetToMeters, getRace } from '../data/races.js';
 import { getBackground } from '../data/backgrounds.js';
 import { getClassFeatures } from '../data/classFeatures.js';
 import { getClassResources } from '../data/classResources.js';
+import { resolveRaceTraits } from '../data/raceTraits.js';
+import { CLASS_LANGUAGES, LANGUAGES, MAX_LANGUAGE_PICKS, parseLanguageText } from '../data/languages.js';
 import { SKILLS } from '../data/skills.js';
 import { clamp, formatModifier } from '../core/utils.js';
 import { loc, pick } from '../i18n/i18n.js';
 import { choiceFeatureRows, describeChoiceGroups, resolveClassChoices } from './classChoices.js';
 import {
-  abilityModifier, attackBonus, computeArmorClass, proficiencyBonus, skillBonus,
+  abilityModifier, attackBonus, averageHpGain, computeArmorClass, proficiencyBonus, skillBonus,
   spellAttackBonus, spellSaveDC, spellSlotsFor, suggestedMaxHp,
 } from './calculations.js';
 
@@ -140,6 +142,44 @@ export function deriveStats(state, { sources = null } = {}) {
   const features = getClassFeatures(cls.id, level, choiceFeatureRows(resolved, level));
   const resources = getClassResources(cls.id, level, mods, { subclass: resolved.subclass?.option.value ?? '', profBonus });
 
+  // Tratti razziali: descrizioni, resistenze, competenze, PF extra e usi limitati.
+  const raceOption = race?.option ? state.info.raceChoices.option : '';
+  const raceTraits = resolveRaceTraits(race?.id ?? '', {
+    level, profBonus, mods, option: raceOption,
+    optionLabel: race?.option?.options.find((o) => o.value === raceOption) ? loc(race.option.options.find((o) => o.value === raceOption), 'label') : '',
+  });
+  const hpPerLevel = (resolved.effects.hpPerLevel ?? 0) + raceTraits.hpPerLevel;
+
+  // Lingue: fisse (razza, background, classe), a scelta (menu) e libere.
+  const langName = (id) => loc(LANGUAGES.find((l) => l.id === id));
+  const raceLang = parseLanguageText(race?.languages);
+  const bgLang = parseLanguageText(background?.languages);
+  const fixedIds = uniqueValid([...raceLang.ids, ...bgLang.ids, ...(CLASS_LANGUAGES[cls.id] ? [CLASS_LANGUAGES[cls.id]] : [])]);
+  const fixedCustom = uniqueValid([...raceLang.custom, ...bgLang.custom]);
+  const slotCount = Math.min(MAX_LANGUAGE_PICKS, raceLang.choices + bgLang.choices);
+  const pickedIds = [];
+  const languageSlots = Array.from({ length: slotCount }, (_, i) => {
+    const key = `pick${i + 1}`;
+    const raw = state.languages[key];
+    const duplicate = Boolean(raw) && (fixedIds.includes(raw) || pickedIds.includes(raw));
+    if (raw && !duplicate) pickedIds.push(raw);
+    const taken = new Set([...fixedIds, ...Object.values(state.languages).filter((v, j) => j < slotCount && v && `pick${j + 1}` !== key)]);
+    return {
+      key, value: raw, duplicate,
+      options: LANGUAGES.filter((l) => !l.special && (!taken.has(l.id) || l.id === raw)).map((l) => ({ value: l.id, label: loc(l) })),
+    };
+  });
+  const otherLanguages = state.languages.other.split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+  const knownLanguages = uniqueValid([...fixedIds.map(langName), ...fixedCustom, ...pickedIds.map(langName), ...otherLanguages]);
+
+  const usables = [
+    ...resources.filter((r) => r.use).map((r) => ({ id: r.use.id, label: r.label, detail: r.value, max: r.use.max, recharge: r.use.recharge })),
+    ...raceTraits.uses.map((u) => ({ id: u.id, label: u.label, detail: u.detail ?? '', max: u.max, recharge: u.recharge })),
+  ].map((u) => {
+    const used = Math.min(state.resourcesUsed[u.id] ?? 0, u.max);
+    return { ...u, used, remaining: `${u.max - used}/${u.max}`, path: `resourcesUsed.${u.id}` };
+  });
+
   const skillName = (id) => (SKILLS.find((s) => s.id === id) ? loc(SKILLS.find((s) => s.id === id)) : id);
 
   // Menu a tendina per le scelte di razza (vuoto se la razza non ne ha)
@@ -187,7 +227,20 @@ export function deriveStats(state, { sources = null } = {}) {
       ].join(', '),
       darkvision: race.darkvisionFt ? `${feetToMeters(race.darkvisionFt)} m` : pick('Nessuna', 'None'),
       choices: raceChoices,
+      resistances: raceTraits.resistances.join(', '),
+      proficiencies: [
+        ...(raceTraits.proficiencies.armor.length ? [`${pick('Armature', 'Armor')}: ${raceTraits.proficiencies.armor.join(', ')}`] : []),
+        ...(raceTraits.proficiencies.weapons.length ? [`${pick('Armi', 'Weapons')}: ${raceTraits.proficiencies.weapons.join(', ')}`] : []),
+        ...(raceTraits.proficiencies.tools.length ? [`${pick('Strumenti', 'Tools')}: ${raceTraits.proficiencies.tools.join(', ')}`] : []),
+      ].join(' · '),
     } : null,
+    raceTraits: raceTraits.traits,
+    hasRaceTraits: raceTraits.traits.length > 0,
+    languageInfo: {
+      known: knownLanguages.join(', ') || pick('Nessuna', 'None'),
+      slots: languageSlots,
+      hasSlots: languageSlots.length > 0,
+    },
     background: {
       isCustom: !background,
       name: background ? loc(background) : '',
@@ -257,11 +310,19 @@ export function deriveStats(state, { sources = null } = {}) {
     },
 
     features,
+    // Risorse a usi limitati (con spunte) e risorse solo informative (valori che scalano col livello).
+    usables,
+    infoResources: resources.filter((r) => !r.use),
     resources,
     hasResources: resources.length > 0,
+    hasUsables: usables.length > 0,
 
     hp: {
-      suggested: suggestedMaxHp(cls.hitDie, level, mods.con, resolved.effects.hpPerLevel),
+      hitDieSides: cls.hitDie,
+      conMod: mods.con,
+      perLevelBonus: hpPerLevel,
+      averageGain: averageHpGain(cls.hitDie, mods.con, hpPerLevel),
+      suggested: suggestedMaxHp(cls.hitDie, level, mods.con, hpPerLevel),
       percent: hpPercent,
       level: hpLevel(hpPercent),
       isDown: hpCurrent <= 0,

@@ -29,6 +29,9 @@ function ordinal(n) {
   return `${n}${{ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'}`;
 }
 
+/** Oltre questo numero di usi si mostra un contatore al posto dei pallini (es. Imposizione delle Mani). */
+const MAX_PIPS = 20;
+
 const FORMATTERS = {
   mod: (v) => formatModifier(Number(v)),
 };
@@ -176,7 +179,10 @@ export class CharacterView {
     this.#renderWeapons(state.weapons);
     this.#renderSpellSlots(derived.spellcasting.slots);
     this.#renderFeatures(derived.features);
-    this.#renderResources(derived.resources);
+    this.#renderRaceTraits(derived.raceTraits);
+    this.#renderLanguageSlots(derived.languageInfo.slots);
+    this.#renderResources(derived.infoResources);
+    this.#renderUsables(derived.usables);
     this.#renderOrigins(state, derived.sources);
     this.#renderRaceChoices(derived.race?.choices ?? []);
     this.#renderClassSkills(derived.classInfo.skillSlots);
@@ -276,6 +282,37 @@ export class CharacterView {
     ])));
   }
 
+  #renderRaceTraits(traits) {
+    const key = traits.map((t) => `${t.name}${t.tag}${t.description}`).join('|');
+    if (!this.#shouldRebuild('race-traits', key)) return;
+
+    this.#q('[data-list="race-traits"]').replaceChildren(...traits.map((t) => el('li', { class: 'feature feature--race' }, [
+      el('span', { class: 'feature__level', text: pick('Razza', 'Race') }),
+      el('div', {}, [
+        el('div', { class: 'feature__name' }, [t.name, t.tag ? el('span', { class: 'feature__tag', text: t.tag }) : null]),
+        el('p', { class: 'feature__desc', text: t.description }),
+      ]),
+    ])));
+  }
+
+  /** Menu per le lingue a scelta (razza e background); quelle già note non si ripropongono. */
+  #renderLanguageSlots(slots) {
+    const key = slots.map((s) => `${s.key}:${s.duplicate}:${s.options.map((o) => o.value).join(',')}`).join('|');
+    if (!this.#shouldRebuild('language-slots', key)) return;
+
+    this.#q('[data-list="language-slots"]').replaceChildren(...slots.map((slot, i) => el('label', { class: 'field' }, [
+      el('span', { class: 'field__label', text: `${pick('Lingua a scelta', 'Language of your choice')} ${i + 1}` }),
+      el('select', { 'aria-invalid': slot.duplicate ? 'true' : null, dataset: { bind: `languages.${slot.key}` } }, [
+        el('option', { value: '', text: '—' }),
+        ...slot.options.map((o) => el('option', { value: o.value, text: o.label })),
+      ]),
+      slot.duplicate ? el('small', {
+        class: 'field__error', role: 'status',
+        text: pick('Già conosciuta: scegline un\'altra.', 'Already known: pick another.'),
+      }) : null,
+    ])));
+  }
+
   #renderResources(resources) {
     const key = resources.map((r) => `${r.label}=${r.value}`).join('|');
     if (!this.#shouldRebuild('resources', key)) return;
@@ -284,6 +321,93 @@ export class CharacterView {
       el('span', { class: 'stat__label', text: r.label }),
       el('span', { class: 'stat__value', text: r.value }),
     ])));
+  }
+
+  /**
+   * Risorse a usi limitati: pallini da spuntare (un contatore se sono tanti) e il riposo che le ricarica.
+   * Si ricostruiscono solo se cambiano massimo o etichetta; le spunte seguono lo stato (vedi #renderPips).
+   */
+  #renderUsables(usables) {
+    const key = usables.map((u) => `${u.id}:${u.label}:${u.detail}:${u.max}:${u.recharge}`).join('|');
+    if (!this.#shouldRebuild('usables', key)) return;
+
+    const recharge = { short: pick('Riposo breve', 'Short rest'), long: pick('Riposo lungo', 'Long rest') };
+    this.#q('[data-list="usables"]').replaceChildren(...usables.map((u, i) => el('div', { class: 'usable' }, [
+      el('div', { class: 'usable__head' }, [
+        el('span', { class: 'usable__name', text: u.label }),
+        el('span', { class: `usable__tag usable__tag--${u.recharge}`, text: recharge[u.recharge] }),
+      ]),
+      el('div', { class: 'usable__body' }, [
+        u.max > MAX_PIPS
+          ? el('label', { class: 'usable__counter' }, [
+            el('span', { text: pick('Usati', 'Used') }),
+            el('input', { type: 'number', min: 0, max: u.max, inputmode: 'numeric', dataset: { bind: u.path } }),
+          ])
+          : el('div', { class: 'pips', dataset: { pips: '', path: u.path, max: u.max, label: `${u.label}: ${pick('uso speso', 'use spent')}` } }),
+        el('span', { class: 'usable__count', dataset: { out: `usables.${i}.remaining` } }),
+      ]),
+      u.detail ? el('small', { class: 'usable__detail', text: u.detail }) : null,
+    ])));
+  }
+
+  /**
+   * Propone come assegnare i PF salendo di livello: media, tiro del dado vita o dadi già tirati.
+   * @returns {Promise<{mode: 'average'|'roll'|'manual', total?: number} | null>} null se si rimanda
+   */
+  promptLevelUp({ from, to, levels, hp }) {
+    const die = hp.hitDieSides;
+    const sign = (n) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
+    const average = hp.averageGain * levels;
+    const dialog = el('dialog', { class: 'dialog dialog--levelup', 'aria-labelledby': 'levelup-title' });
+    let result = null;
+    const done = (value) => { result = value; dialog.close(); };
+
+    const manual = el('input', {
+      type: 'number', class: 'input', min: levels, max: levels * die, inputmode: 'numeric',
+      'aria-label': pick(`Somma dei dadi tirati (${levels}d${die})`, `Sum of the dice rolled (${levels}d${die})`),
+      placeholder: `${levels}–${levels * die}`,
+    });
+    const manualBtn = el('button', { type: 'button', class: 'btn' }, pick('Applica', 'Apply'));
+    manualBtn.addEventListener('click', () => {
+      const total = Number.parseInt(manual.value, 10);
+      if (Number.isFinite(total)) done({ mode: 'manual', total });
+      else manual.focus();
+    });
+
+    const averageBtn = el('button', { type: 'button', class: 'btn btn--teal' },
+      pick(`Media: +${average} PF`, `Average: +${average} HP`));
+    averageBtn.addEventListener('click', () => done({ mode: 'average' }));
+    const rollBtn = el('button', { type: 'button', class: 'btn' },
+      pick(`Tira ${levels > 1 ? levels : ''}d${die}`, `Roll ${levels > 1 ? levels : ''}d${die}`));
+    rollBtn.addEventListener('click', () => done({ mode: 'roll' }));
+    const laterBtn = el('button', { type: 'button', class: 'btn btn--ghost' }, pick('Non ora', 'Not now'));
+    laterBtn.addEventListener('click', () => done(null));
+
+    dialog.append(
+      el('div', { class: 'dialog__head' }, [
+        el('h2', { id: 'levelup-title', text: pick(`Livello ${to}!`, `Level ${to}!`) }),
+      ]),
+      el('p', { class: 'dialog__hint', text: pick(
+        `Sali da ${from} a ${to}: come vuoi aumentare i PF massimi?`,
+        `Going from ${from} to ${to}: how do you want to raise your maximum HP?`,
+      ) }),
+      el('p', { class: 'dialog__hint', text: pick(
+        `Dado vita d${die} · mod. Costituzione ${sign(hp.conMod)}${hp.perLevelBonus ? ` · +${hp.perLevelBonus} per livello` : ''}. Ogni livello dà almeno 1 PF.`,
+        `Hit die d${die} · Constitution modifier ${sign(hp.conMod)}${hp.perLevelBonus ? ` · +${hp.perLevelBonus} per level` : ''}. Each level gives at least 1 HP.`,
+      ) }),
+      el('div', { class: 'dialog__inline' }, [averageBtn, rollBtn]),
+      el('div', { class: 'dialog__inline' }, [
+        el('span', { class: 'dialog__hint', text: pick('Hai già tirato fisicamente?', 'Already rolled physical dice?') }),
+        manual, manualBtn,
+      ]),
+      el('div', { class: 'dialog__inline' }, [laterBtn]),
+    );
+    document.body.append(dialog);
+    return new Promise((resolve) => {
+      dialog.addEventListener('close', () => { dialog.remove(); resolve(result); });
+      dialog.showModal();
+      averageBtn.focus();
+    });
   }
 
   /**

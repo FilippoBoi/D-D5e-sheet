@@ -6,7 +6,7 @@
  * - Dopo ogni modifica emette l'evento 'change'.
  */
 import { EventEmitter } from '../core/EventEmitter.js';
-import { getByPath, setByPath } from '../core/utils.js';
+import { clampInt, getByPath, setByPath } from '../core/utils.js';
 import {
   MAX_AC_ITEMS, MAX_WEAPONS, classSaveProficiencies, createAcItem, createDefaultCharacter, createWeapon,
   normalizeCharacter, sanitizeValue,
@@ -15,6 +15,7 @@ import { CORE_SOURCE, normalizeSources } from '../data/sources.js';
 import { deriveStats } from './deriveStats.js';
 import { feetToMeters, getRace } from '../data/races.js';
 import { defaultChoiceValues, getChoiceDefs, isListType } from '../data/classChoices/index.js';
+import { averageHpGain, rolledHpGain } from './calculations.js';
 import { allowedValues, dependentKeys, validateChoiceValue } from './classChoices.js';
 
 export class CharacterModel extends EventEmitter {
@@ -187,7 +188,19 @@ export class CharacterModel extends EventEmitter {
     this.#emitChange('combat');
   }
 
-  /** Riposo lungo: PF al massimo, slot recuperati, TS contro morte azzerati. */
+  /** Riposo breve: tornano le risorse "a riposo breve" e, per il Warlock, gli slot del Patto. */
+  shortRest() {
+    const derived = this.getDerived();
+    for (const use of derived.usables) {
+      if (use.recharge === 'short') this.#state.resourcesUsed[use.id] = 0;
+    }
+    if (derived.spellcasting.isPact) {
+      for (const key of Object.keys(this.#state.spells.slotsUsed)) this.#state.spells.slotsUsed[key] = 0;
+    }
+    this.#emitChange('rest');
+  }
+
+  /** Riposo lungo: PF al massimo, slot e tutte le risorse recuperati, TS contro morte azzerati. */
   longRest() {
     const c = this.#state.combat;
     c.hpCurrent = c.hpMax;
@@ -195,7 +208,40 @@ export class CharacterModel extends EventEmitter {
     c.deathSuccesses = 0;
     c.deathFailures = 0;
     for (const key of Object.keys(this.#state.spells.slotsUsed)) this.#state.spells.slotsUsed[key] = 0;
+    for (const key of Object.keys(this.#state.resourcesUsed)) this.#state.resourcesUsed[key] = 0;
     this.#emitChange('rest');
+  }
+
+  /**
+   * PF guadagnati salendo di `levels` livelli: media del dado vita, tiro virtuale o somma dei dadi già tirati.
+   * Aumenta PF massimi e attuali (senza superare 999).
+   * @param {number} levels livelli guadagnati
+   * @param {{mode: 'average'|'roll'|'manual', total?: number, rng?: () => number}} choice
+   * @returns {{gain: number, rolls: number[]}} PF aggiunti e dadi tirati (vuoto con la media)
+   */
+  applyLevelUpHp(levels, { mode, total = 0, rng = Math.random }) {
+    const n = Math.trunc(levels);
+    if (!(n > 0)) return { gain: 0, rolls: [] };
+    const { hitDieSides: die, conMod, perLevelBonus } = this.getDerived().hp;
+    let gain = 0;
+    let rolls = [];
+    if (mode === 'average') {
+      gain = averageHpGain(die, conMod, perLevelBonus) * n;
+    } else if (mode === 'roll') {
+      rolls = Array.from({ length: n }, () => 1 + Math.floor(rng() * die));
+      gain = rolls.reduce((sum, roll) => sum + rolledHpGain(roll, conMod, perLevelBonus), 0);
+    } else if (mode === 'manual') {
+      const rolled = clampInt(total, n, n * die);
+      gain = Math.max(n, rolled + n * conMod) + n * perLevelBonus;
+    } else {
+      return { gain: 0, rolls: [] };
+    }
+    const c = this.#state.combat;
+    const hpMax = Math.min(999, c.hpMax + gain);
+    c.hpCurrent = Math.min(hpMax, c.hpCurrent + (hpMax - c.hpMax));
+    c.hpMax = hpMax;
+    this.#emitChange('combat');
+    return { gain, rolls };
   }
 
   /** Sostituisce l'intero personaggio (import JSON). I dati vengono validati. */
