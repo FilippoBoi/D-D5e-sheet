@@ -122,6 +122,7 @@ export class CharacterController {
   #handleAction(action, data) {
     const handlers = {
       'add-weapon': () => this.#model.addWeapon(),
+      'toggle-choice': () => this.#model.toggleChoice(data.choiceKey, data.choiceValue),
       'add-ac-item': () => this.#model.addAcItem(),
       'remove-ac-item': () => this.#model.removeAcItem(data.id),
       'remove-weapon': () => this.#model.removeWeapon(data.id),

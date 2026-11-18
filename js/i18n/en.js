@@ -81,6 +81,7 @@ export const UI_EN = {
   'Armi': 'Weapons',
   'Strumenti': 'Tools',
   'Abilità di classe': 'Class skills',
+  'Scelte di classe': 'Class choices',
   'Livello': 'Level',
   'Bonus competenza': 'Proficiency bonus',
   'Dado vita': 'Hit die',

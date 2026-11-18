@@ -40,6 +40,8 @@ export class CharacterView {
   #headOriginals = null;
   /** Chiavi dell'ultimo render delle liste, per ricostruirle solo quando cambiano. */
   #listKeys = new Map();
+  /** Nodi delle scelte di classe già costruiti, per aggiornarli senza ricrearli. */
+  #choiceNodes = null;
 
   /** @param {Document | HTMLElement} root */
   constructor(root = document) {
@@ -155,6 +157,8 @@ export class CharacterView {
     translateTree(this.#root.body ?? this.#root);
     if (this.#catalogs) this.build(this.#catalogs);
     this.#listKeys.clear(); // le liste dinamiche vanno ricostruite nella nuova lingua
+    this.#choiceNodes?.forEach((entry) => entry.node.remove());
+    this.#choiceNodes = null;
     this.#qa('[data-lang]').forEach((button) => {
       button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
     });
@@ -178,6 +182,7 @@ export class CharacterView {
     this.#renderResources(derived.resources);
     this.#renderRaceChoices(derived.race?.choices ?? []);
     this.#renderClassSkills(derived.classInfo.skillSlots);
+    this.#renderClassChoices(derived.classChoices);
     this.#renderAcItems(state.equipment.acItems);
 
     // 2. Valori: input, output, pallini, visibilità
@@ -193,6 +198,17 @@ export class CharacterView {
       const negate = expr.startsWith('!');
       const value = Boolean(getByPath(derived, negate ? expr.slice(1) : expr));
       node.hidden = negate ? value : !value;
+    });
+    // Maestria concessa da una scelta di classe: spuntata e bloccata, per non confonderla con quella manuale.
+    const fromChoices = new Set(derived.expertiseFromChoices);
+    this.#qa('input.expertise').forEach((box) => {
+      const id = box.dataset.bind.split('.')[1];
+      const locked = fromChoices.has(id);
+      box.disabled = locked;
+      if (locked) box.checked = true;
+      box.title = locked
+        ? pick('Maestria concessa da una scelta di classe', 'Expertise granted by a class choice')
+        : pick('Maestria (doppia competenza)', 'Expertise (double proficiency)');
     });
 
     // 3. Barra dei PF
@@ -250,13 +266,13 @@ export class CharacterView {
   }
 
   #renderFeatures(features) {
-    const key = features.map((f) => `${f.level}${f.name}`).join('|');
+    const key = features.map((f) => `${f.level}${f.name}${f.tag ?? ''}${f.description}`).join('|');
     if (!this.#shouldRebuild('features', key)) return;
 
     this.#q('[data-list="features"]').replaceChildren(...features.map((f) => el('li', { class: 'feature' }, [
       el('span', { class: 'feature__level', text: pick(`Liv. ${f.level}`, `Lv. ${f.level}`) }),
       el('div', {}, [
-        el('div', { class: 'feature__name', text: f.name }),
+        el('div', { class: 'feature__name' }, [f.name, f.tag ? el('span', { class: 'feature__tag', text: f.tag }) : null]),
         el('p', { class: 'feature__desc', text: f.description }),
       ]),
     ])));
@@ -298,6 +314,99 @@ export class CharacterView {
         ...slot.options.map((o) => el('option', { value: o.value, text: o.label })),
       ]),
     ])));
+  }
+
+
+  /**
+   * Scelte di classe: menu per le singole, elenco con caselle (e ricerca se lungo) per le multiple.
+   * La struttura si ricostruisce solo se cambia; i nodi invariati restano al loro posto, così
+   * scegliere un'opzione non fa perdere il focus. I valori si aggiornano sul posto a ogni render.
+   */
+  #renderClassChoices(groups) {
+    const container = this.#q('[data-list="class-choices"]');
+    if (!container) return;
+    this.#choiceNodes ??= new Map();
+    const wanted = new Map();
+    for (const g of groups) {
+      const signature = `${g.type}|${g.label}|${g.hint}|${g.options.map((o) => `${o.value}=${o.label}`).join(',')}`;
+      const previous = this.#choiceNodes.get(g.key);
+      wanted.set(g.key, previous?.signature === signature ? previous : { signature, node: this.#buildChoice(g) });
+    }
+    for (const [key, entry] of this.#choiceNodes) if (!wanted.has(key)) entry.node.remove();
+    this.#choiceNodes = wanted;
+    let cursor = container.firstChild;
+    for (const { node } of wanted.values()) {
+      if (node === cursor) cursor = cursor.nextSibling;
+      else container.insertBefore(node, cursor);
+    }
+
+    for (const g of groups) this.#syncChoice(wanted.get(g.key).node, g);
+  }
+
+  #buildChoice(g) {
+    const bind = `info.classChoices.${g.key}`;
+    if (g.type === 'single' || g.type === 'text') {
+      const control = g.type === 'text'
+        ? el('input', { type: 'text', autocomplete: 'off', maxlength: '60', dataset: { bind } })
+        : el('select', { dataset: { bind } }, [
+          el('option', { value: '', text: '—' }),
+          ...g.options.map((o) => el('option', { value: o.value, text: o.label })),
+        ]);
+      return el('label', { class: 'field choice', dataset: { choice: g.key } }, [
+        el('span', { class: 'field__label', text: g.label }),
+        control,
+        el('small', { class: 'choice__desc', dataset: { role: 'desc' } }),
+      ]);
+    }
+
+    const list = el('div', { class: 'choice__list' }, g.options.map((o) => el('label', { class: 'choice__opt', dataset: { search: `${o.label} ${o.note}`.toLowerCase() } }, [
+      el('input', { type: 'checkbox', dataset: { action: 'toggle-choice', choiceKey: g.key, choiceValue: o.value } }),
+      el('span', { class: 'choice__text' }, [
+        el('span', { class: 'choice__name', text: o.label }),
+        el('small', { class: 'choice__note', dataset: { role: 'note' } }),
+      ]),
+    ])));
+    const fieldset = el('fieldset', { class: 'choice choice--multi', dataset: { choice: g.key } }, [
+      el('legend', { class: 'field__label', text: g.label }),
+      g.hint ? el('p', { class: 'hint', text: g.hint }) : null,
+      el('p', { class: 'choice__count', 'aria-live': 'polite', dataset: { role: 'count' } }),
+    ]);
+    if (g.searchable) {
+      const search = el('input', {
+        type: 'search', class: 'choice__search', autocomplete: 'off',
+        placeholder: pick('Cerca…', 'Search…'), 'aria-label': `${pick('Cerca in', 'Search in')} ${g.label}`,
+      });
+      search.addEventListener('input', () => {
+        const query = search.value.trim().toLowerCase();
+        list.querySelectorAll('.choice__opt').forEach((row) => { row.hidden = Boolean(query) && !row.dataset.search.includes(query); });
+      });
+      fieldset.append(search);
+    }
+    fieldset.append(list, el('p', { class: 'choice__warn', role: 'status', hidden: true, dataset: { role: 'warn' } }));
+    return fieldset;
+  }
+
+  #syncChoice(node, g) {
+    const part = (role) => node.querySelector(`[data-role="${role}"]`);
+    if (g.type === 'single') { part('desc').textContent = g.description; return; }
+    if (g.type === 'text') return;
+
+    node.querySelectorAll('.choice__opt').forEach((row, i) => {
+      const o = g.options[i];
+      const box = row.querySelector('input');
+      box.checked = o.selected;
+      box.disabled = o.disabled;
+      row.classList.toggle('choice__opt--disabled', o.disabled);
+      row.querySelector('[data-role="note"]').textContent = o.note;
+    });
+    part('count').textContent = `${g.selectedCount}/${g.count}`;
+    const messages = [
+      g.overflow.length ? `${pick('Oltre il limite, non contano', 'Over the limit, not counted')}: ${g.overflow.join(', ')}.` : '',
+      ...g.blocked.map((b) => `${b.label}: ${b.reason}.`),
+    ].filter(Boolean);
+    const warn = part('warn');
+    warn.hidden = messages.length === 0;
+    warn.textContent = messages.join(' ');
   }
 
   /** Oggetti che modificano la CA: nome e bonus, con rimozione. */
