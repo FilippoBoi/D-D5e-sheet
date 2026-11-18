@@ -74,6 +74,8 @@
           <label class="field"><span class="field__label">Razza</span>
             <select data-bind="info.raceId" data-options="races"></select></label>
           <label class="field"><span class="field__label">Background</span>
+            <select data-bind="info.backgroundId" data-options="backgrounds"></select></label>
+          <label class="field" data-show-if="background.isCustom"><span class="field__label">Background personalizzato</span>
             <input type="text" data-bind="info.background" autocomplete="off" placeholder="Es. Accolito"></label>
           <label class="field"><span class="field__label">Allineamento</span>
             <select data-bind="info.alignment" data-options="alignments"><option value="">—</option></select></label>
@@ -93,6 +95,15 @@
             <div><dt>Abilità di classe</dt><dd data-out="classInfo.skillChoice"></dd></div>
           </dl>
           <div class="grid grid--3 origin__choices" data-list="race-choices" data-show-if="race.choices.length"></div>
+        </div>
+        <div class="origin" data-show-if="!background.isCustom">
+          <p class="origin__title"><strong data-out="background.name"></strong> · <span data-out="background.feature"></span></p>
+          <dl class="origin__list">
+            <div><dt>Competenze in abilità</dt><dd data-out="background.skills"></dd></div>
+            <div><dt>Strumenti</dt><dd data-out="background.tools"></dd></div>
+            <div><dt>Lingue</dt><dd data-out="background.languages"></dd></div>
+            <div><dt>Equipaggiamento</dt><dd data-out="background.equipment"></dd></div>
+          </dl>
         </div>
         <div class="grid grid--3 grid--stats">
           <label class="field"><span class="field__label">Livello</span>

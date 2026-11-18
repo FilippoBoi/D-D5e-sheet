@@ -6,6 +6,7 @@ import { ABILITIES, ALIGNMENTS } from './data/abilities.js';
 import { ARMORS, ARMOR_CATEGORIES } from './data/armors.js';
 import { CLASS_LIST } from './data/classes.js';
 import { RACE_LIST } from './data/races.js';
+import { BACKGROUND_LIST } from './data/backgrounds.js';
 import { SKILLS } from './data/skills.js';
 import { CharacterModel } from './model/CharacterModel.js';
 import { LocalStorageRepository } from './model/LocalStorageRepository.js';
@@ -33,6 +34,7 @@ const controller = new CharacterController({
     armorCategories: ARMOR_CATEGORIES,
     classes: CLASS_LIST,
     races: RACE_LIST,
+    backgrounds: BACKGROUND_LIST,
     alignments: ALIGNMENTS,
   },
 });
