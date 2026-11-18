@@ -58,6 +58,22 @@ class Storage {
   Object? loadSources() => _read('$key:sources');
   Future<bool> saveSources(Object? data) => _write('$key:sources', data);
 
+  /// Copia nello storage le voci raw della versione JS che qui mancano (il formato JSON è lo stesso).
+  /// Restituisce quante ne ha copiate.
+  Future<int> adoptRaw(Map<String, String> entries) async {
+    var copied = 0;
+    for (final e in entries.entries) {
+      try {
+        if (_prefs == null || _prefs.containsKey(e.key)) continue;
+        jsonDecode(e.value); // solo JSON valido
+        if (await _prefs.setString(e.key, e.value)) copied++;
+      } catch (_) {
+        // voce illeggibile: si salta
+      }
+    }
+    return copied;
+  }
+
   /// Oggetti JSON salvati con un nome libero (sessioni, account…).
   Object? loadObject(String name) => _read('$key:$name');
   Future<bool> saveObject(String name, Object? value) => _write('$key:$name', value);
