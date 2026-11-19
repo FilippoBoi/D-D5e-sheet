@@ -86,3 +86,24 @@ test('i salvataggi senza resourcesUsed ricevono i valori di default', () => {
   model.set('resourcesUsed.ki', 3);
   assert.equal(new CharacterModel(model.toJSON()).get('resourcesUsed.ki'), 3);
 });
+
+test('dadi vita: si spendono curando, metà tornano col riposo lungo, la concentrazione finisce coi riposi', () => {
+  const model = make({ classId: 'fighter', level: 5 }); // d10
+  model.set('abilities.con', 14); // +2
+  model.set('combat.hpMax', 50);
+  model.set('combat.hpCurrent', 10);
+  assert.deepEqual(model.getHitDice(), { total: 5, used: 0, remaining: 5 });
+  const result = model.spendHitDie(() => 0.5); // 1 + floor(5) = 6
+  assert.deepEqual(result, { roll: 6, conMod: 2, healed: 8 });
+  assert.equal(model.get('combat.hpCurrent'), 18);
+  assert.equal(model.getHitDice().remaining, 4);
+  model.set('combat.concentration', 'Benedizione');
+  model.shortRest();
+  assert.equal(model.get('combat.concentration'), '');
+  for (let i = 0; i < 4; i += 1) model.spendHitDie(() => 0);
+  assert.equal(model.spendHitDie(), null, 'nessun dado rimasto');
+  model.longRest();
+  assert.equal(model.getHitDice().used, 3, 'tornano 2 dadi (metà di 5, arrotondato per difetto)');
+  model.set('combat.hitDiceUsed', 99);
+  assert.equal(model.getHitDice().used, 5, 'mai più del livello');
+});

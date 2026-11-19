@@ -11,6 +11,7 @@ import 'panels_info.dart';
 import 'panels_lore.dart';
 import 'panels_notes.dart';
 import 'panels_play.dart';
+import 'panels_quick.dart';
 import 'session_ui.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -79,6 +80,8 @@ class SectionBody extends StatelessWidget {
         children = [
           TwoColumns(
             left: [
+              _panel('quick', pick('Azioni rapide', 'Quick actions'), QuickActionsPanel(app: app)),
+              gap,
               _panel('combat', tr('Combattimento & Punti Ferita'), CombatPanel(app: app)),
               gap,
               _panel('abilities', tr('Caratteristiche & Tiri Salvezza'), AbilitiesPanel(app: app)),

@@ -78,7 +78,7 @@ class _SheetPageState extends State<SheetPage> {
     app.status.value = pick('+${result.gain} PF massimi$detail', '+${result.gain} max HP$detail');
   }
 
-  static const _panelIds = ['info', 'combat', 'abilities', 'skills', 'equipment', 'spells', 'features', 'languages'];
+  static const _panelIds = ['quick', 'info', 'combat', 'abilities', 'skills', 'equipment', 'spells', 'features', 'languages'];
 
   Future<void> _export() async {
     final json = app.exportJson();

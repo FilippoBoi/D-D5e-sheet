@@ -222,6 +222,30 @@ export class CharacterModel extends EventEmitter {
     this.#emitChange('combat');
   }
 
+  /** Dadi vita: uno per livello; quelli spesi non superano il livello. */
+  getHitDice() {
+    const total = this.#state.info.level;
+    const used = Math.min(this.#state.combat.hitDiceUsed, total);
+    return { total, used, remaining: total - used };
+  }
+
+  /**
+   * Spende un dado vita (riposo breve): tira il dado, aggiunge il mod. Costituzione (almeno 0 PF) e cura.
+   * @param {() => number} rng
+   * @returns {{roll: number, conMod: number, healed: number} | null} null se non ne restano
+   */
+  spendHitDie(rng = Math.random) {
+    if (this.getHitDice().remaining <= 0) return null;
+    const { hitDieSides, conMod } = this.getDerived().hp;
+    const roll = 1 + Math.floor(rng() * hitDieSides);
+    const healed = Math.max(0, roll + conMod);
+    const c = this.#state.combat;
+    const before = c.hpCurrent;
+    c.hitDiceUsed = this.getHitDice().used + 1;
+    this.heal(healed);
+    return { roll, conMod, healed: c.hpCurrent - before };
+  }
+
   applySuggestedHp() {
     const { suggested } = this.getDerived().hp;
     this.#state.combat.hpMax = suggested;
@@ -238,16 +262,19 @@ export class CharacterModel extends EventEmitter {
     if (derived.spellcasting.isPact) {
       for (const key of Object.keys(this.#state.spells.slotsUsed)) this.#state.spells.slotsUsed[key] = 0;
     }
+    this.#state.combat.concentration = '';
     this.#emitChange('rest');
   }
 
-  /** Riposo lungo: PF al massimo, slot e tutte le risorse recuperati, TS contro morte azzerati. */
+  /** Riposo lungo: PF al massimo, slot e tutte le risorse recuperati, TS contro morte azzerati; metà dei dadi vita (min. 1). */
   longRest() {
     const c = this.#state.combat;
     c.hpCurrent = c.hpMax;
     c.hpTemp = 0;
     c.deathSuccesses = 0;
     c.deathFailures = 0;
+    c.concentration = '';
+    c.hitDiceUsed = Math.max(0, this.getHitDice().used - Math.max(1, Math.floor(this.#state.info.level / 2)));
     for (const key of Object.keys(this.#state.spells.slotsUsed)) this.#state.spells.slotsUsed[key] = 0;
     for (const key of Object.keys(this.#state.resourcesUsed)) this.#state.resourcesUsed[key] = 0;
     this.#emitChange('rest');

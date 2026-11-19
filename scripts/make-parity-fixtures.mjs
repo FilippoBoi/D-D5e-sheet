@@ -83,6 +83,8 @@ for (const classId of CLASS_IDS) {
     model.set('combat.hpMax', int(5, 200));
     model.set('combat.hpCurrent', int(0, 150));
     model.set('combat.hpTemp', int(0, 10));
+    model.set('combat.hitDiceUsed', int(0, 4));
+    if (n % 3 === 0) model.set('combat.concentration', 'Benedizione');
     model.set('spells.slotsUsed.1', int(0, 4));
     model.set('resourcesUsed.rage', 1);
     model.set('resourcesUsed.breathWeapon', 1);

@@ -255,6 +255,27 @@ class CharacterModel extends ChangeNotifier {
     _emit('combat');
   }
 
+  /// Dadi vita: uno per livello; quelli spesi non superano il livello.
+  ({int total, int used, int remaining}) get hitDice {
+    final total = (_state['info'] as Json)['level'] as int;
+    final used = math.min((_state['combat'] as Json)['hitDiceUsed'] as int, total);
+    return (total: total, used: used, remaining: total - used);
+  }
+
+  /// Spende un dado vita (riposo breve): tira il dado, aggiunge il mod. Costituzione (almeno 0 PF) e cura.
+  /// Restituisce null se non ne restano.
+  ({int roll, int conMod, int healed})? spendHitDie([math.Random? rng]) {
+    if (hitDice.remaining <= 0) return null;
+    final hp = derived['hp'] as Json;
+    final roll = 1 + (rng ?? math.Random()).nextInt(hp['hitDieSides'] as int);
+    final conMod = hp['conMod'] as int;
+    final c = _state['combat'] as Json;
+    final before = c['hpCurrent'] as int;
+    c['hitDiceUsed'] = hitDice.used + 1;
+    heal(math.max(0, roll + conMod));
+    return (roll: roll, conMod: conMod, healed: (c['hpCurrent'] as int) - before);
+  }
+
   void applySuggestedHp() {
     final suggested = clampInt(derived['hp']['suggested'] as num, 1, 999);
     final c = _state['combat'] as Json;
@@ -276,16 +297,19 @@ class CharacterModel extends ChangeNotifier {
         slots[key] = 0;
       }
     }
+    (_state['combat'] as Json)['concentration'] = '';
     _emit('rest');
   }
 
-  /// Riposo lungo: PF al massimo, slot e risorse recuperati, TS contro morte azzerati.
+  /// Riposo lungo: PF al massimo, slot e risorse recuperati, TS contro morte azzerati; metà dei dadi vita (min. 1).
   void longRest() {
     final c = _state['combat'] as Json;
     c['hpCurrent'] = c['hpMax'];
     c['hpTemp'] = 0;
     c['deathSuccesses'] = 0;
     c['deathFailures'] = 0;
+    c['concentration'] = '';
+    c['hitDiceUsed'] = math.max(0, hitDice.used - math.max(1, hitDice.total ~/ 2));
     final slots = (_state['spells'] as Json)['slotsUsed'] as Json;
     for (final key in slots.keys.toList()) {
       slots[key] = 0;

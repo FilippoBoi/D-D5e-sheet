@@ -97,6 +97,8 @@ export function createDefaultCharacter() {
     combat: {
       speed: 9, hpMax: 10, hpCurrent: 10, hpTemp: 0,
       deathSuccesses: 0, deathFailures: 0,
+      // Dadi vita spesi (tornano per metà, minimo 1, col riposo lungo) e incantesimo in concentrazione ('' = nessuno).
+      hitDiceUsed: 0, concentration: '',
     },
     equipment: {
       armorId: 'none', shield: false, magicBonus: 0, inventory: '',
@@ -146,6 +148,8 @@ const RULES = [
   [/^combat\.(hpCurrent|hpTemp)$/, (v) => clampInt(v, 0, 999)],
   [/^combat\.speed$/, (v) => clamp(Math.round(v * 2) / 2, 0, 99)],
   [/^combat\.death(Successes|Failures)$/, (v) => clampInt(v, 0, 3)],
+  [/^combat\.hitDiceUsed$/, (v) => clampInt(v, 0, 20)],
+  [/^combat\.concentration$/, (v) => v.slice(0, 80)],
   [/^equipment\.armorId$/, (v) => (ARMOR_IDS.includes(v) ? v : undefined)],
   [/^(equipment|weapons\.\d+)\.magicBonus$/, (v) => clampInt(v, -5, 10)],
   [/^weapons\.\d+\.ability$/, (v) => (WEAPON_ABILITIES.includes(v) ? v : undefined)],

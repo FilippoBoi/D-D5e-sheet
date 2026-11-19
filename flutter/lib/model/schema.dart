@@ -53,7 +53,10 @@ Json createDefaultCharacter() {
     'abilities': {for (final id in cat.abilityIds) id: 10},
     'saveProficiencies': classSaveProficiencies(Catalog.defaultClassId),
     'skills': {for (final id in cat.skillIds) id: {'proficient': false, 'expertise': false}},
-    'combat': {'speed': 9, 'hpMax': 10, 'hpCurrent': 10, 'hpTemp': 0, 'deathSuccesses': 0, 'deathFailures': 0},
+    'combat': {'speed': 9, 'hpMax': 10, 'hpCurrent': 10, 'hpTemp': 0, 'deathSuccesses': 0, 'deathFailures': 0,
+      // Dadi vita spesi (tornano per metà, minimo 1, col riposo lungo) e incantesimo in concentrazione ('' = nessuno).
+      'hitDiceUsed': 0, 'concentration': '',
+    },
     'equipment': {
       'armorId': 'none', 'shield': false, 'magicBonus': 0, 'inventory': '',
       'acItems': <Json>[],
@@ -102,6 +105,8 @@ final List<(RegExp, _Rule)> _rules = [
   (RegExp(r'^combat\.(hpCurrent|hpTemp)$'), (v, _) => clampInt(v as num, 0, 999)),
   (RegExp(r'^combat\.speed$'), (v, _) => cleanNum(clampNum(((v as num) * 2).round() / 2, 0, 99))),
   (RegExp(r'^combat\.death(Successes|Failures)$'), (v, _) => clampInt(v as num, 0, 3)),
+  (RegExp(r'^combat\.hitDiceUsed$'), (v, _) => clampInt(v as num, 0, 20)),
+  (RegExp(r'^combat\.concentration$'), (v, _) => _cut(v as String, 80)),
   (RegExp(r'^equipment\.armorId$'), (v, _) => Catalog.instance.armorIds.contains(v) ? v : null),
   (RegExp(r'^(equipment|weapons\.\d+)\.magicBonus$'), (v, _) => clampInt(v as num, -5, 10)),
   (RegExp(r'^weapons\.\d+\.ability$'), (v, _) => _weaponAbilities.contains(v) ? v : null),

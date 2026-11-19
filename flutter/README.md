@@ -17,6 +17,9 @@ L'app web (HTML/CSS/JS) resta al suo posto e continua a funzionare: questa è un
   si ricorda l'ultima sezione aperta. In Gioco le colonne diventano due quando c'è spazio e il riepilogo (CA, PF, iniziativa…)
   resta sempre in alto. Bersagli di tocco di almeno 48 px, testo ingrandibile senza overflow, tastiera virtuale che non copre
   il campo in uso (la barra in basso si nasconde mentre si scrive).
+- **Azioni rapide** (in cima a Gioco): PF con −5/−1/+1/+5 (il danno consuma prima i PF temporanei), slot incantesimo con un tocco,
+  concentrazione (con il promemoria «TS Costituzione CD n» quando si subisce danno) e dadi vita («Spendi dado» tira, aggiunge il
+  mod. Costituzione e cura). Il riposo breve chiude la concentrazione; il lungo restituisce metà dei dadi vita (minimo 1).
 - **Note**: più note con titolo (anche da modelli rapidi: sessione, PNG, luogo, da fare), crea/rinomina/elimina (con «Annulla»),
   riordina (maniglia di trascinamento o menu «Sposta su/giù»), ricerca nel testo senza badare a maiuscole e accenti, salvataggio
   automatico. «Talenti & altri tratti» e «Storia & personalità» sono le note predefinite in cima all'elenco (restano anche nel
@@ -76,6 +79,9 @@ a `notes.traits` e `notes.backstory` che non cambiano. Il campo esiste **anche n
 quindi il formato JSON resta lo stesso e il test di parità lo verifica (nel test di parità si ignorano solo gli `id` delle note,
 perché la versione JS ne genera di casuali quando mancano o sono doppi). Nella sincronizzazione per campo le liste si scambiano
 intere: due persone che modificano note diverse nello stesso momento si sovrascrivono (vince la modifica locale, come per le armi).
+
+Anche `combat.hitDiceUsed` (dadi vita spesi) e `combat.concentration` (nome dell'incantesimo, vuoto = nessuno, «—» = senza nome)
+esistono in entrambi gli schemi e nelle stesse regole di riposo del Model JS.
 
 Scrittura a mano: tutti i campi di testo lasciano attivo `stylusHandwritingEnabled` (S Pen su Android, Apple Pencil su iOS) e un
 test controlla che nessun campo lo disattivi.

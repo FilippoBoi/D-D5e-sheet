@@ -56,15 +56,15 @@ void main() {
 
   testWidgets('Gioco: due colonne se c\'è spazio, una sola altrimenti; il riepilogo resta visibile', (tester) async {
     await boot(tester, size: tabletLandscape);
-    final combat = tester.getTopLeft(find.text('Combattimento & Punti Ferita'));
+    final combat = tester.getTopLeft(find.text('Azioni rapide'));
     final skills = tester.getTopLeft(find.text('Abilità').first);
-    expect(skills.dx, greaterThan(combat.dx + 300), reason: 'Abilità accanto a Combattimento');
+    expect(skills.dx, greaterThan(combat.dx + 300), reason: 'Abilità accanto alle azioni rapide');
     expect((skills.dy - combat.dy).abs(), lessThan(10));
     expect(find.text('CA '), findsOneWidget); // riepilogo
 
     tester.view.physicalSize = phone;
     await tester.pump();
-    final combat1 = tester.getTopLeft(find.text('Combattimento & Punti Ferita'));
+    final combat1 = tester.getTopLeft(find.text('Azioni rapide'));
     expect(find.text('Abilità'), findsWidgets);
     expect(combat1.dx, lessThan(40));
     // Scorrendo il riepilogo non sparisce.
